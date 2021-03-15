@@ -3,10 +3,10 @@ import hashlib
 import os
 import pty
 import struct
+import tempfile
 import termios
 from typing import Any, Dict, IO, List, Optional, Tuple, Union
 
-import pylru
 
 from dmoj.cptbox import TracedPopen
 from dmoj.cptbox.compiler_isolate import CompilerIsolateTracer
@@ -30,16 +30,6 @@ from dmoj.utils.unicode import utf8bytes
 # `create_files` and `compile` will not be run, and `_executable` will be loaded
 # from the cache.
 class _CompiledExecutorMeta(ExecutorMeta):
-    @staticmethod
-    def _cleanup_cache_entry(_key, executor: 'CompiledExecutor') -> None:
-        # Mark the executor as not-cached, so that if this is the very last reference
-        # to it, __del__ will clean it up.
-        executor.is_cached = False
-
-    compiled_binary_cache: Dict[str, 'CompiledExecutor'] = pylru.lrucache(
-        env.compiled_binary_cache_size, _cleanup_cache_entry
-    )
-
     def __call__(cls, *args, **kwargs) -> 'CompiledExecutor':
         is_cached: bool = kwargs.pop('cached', False)
         if is_cached:
@@ -48,25 +38,27 @@ class _CompiledExecutorMeta(ExecutorMeta):
         # Finish running all constructors before compiling.
         obj: 'CompiledExecutor' = super().__call__(*args, **kwargs)
         obj.is_cached = is_cached
-
         # Before writing sources to disk, check if we have this executor in our cache.
         if is_cached:
             cache_key_material = utf8bytes(obj.__class__.__name__ + obj.__module__) + obj.get_binary_cache_key()
             cache_key = hashlib.sha384(cache_key_material).hexdigest()
-            if cache_key in cls.compiled_binary_cache:
-                executor = cls.compiled_binary_cache[cache_key]
-                assert executor._executable is not None
+
+            cache_file_path = os.path.join(tempfile.gettempdir(), cache_key + '.txt')
+            if os.path.isfile(cache_file_path):
+                executor = open(cache_file_path).read().strip().split('\n')
+                assert len(executor) == 2
                 # Minimal sanity checking: is the file still there? If not, we'll just recompile.
-                if os.path.isfile(executor._executable):
-                    obj._executable = executor._executable
-                    obj._dir = executor._dir
+                if os.path.isfile(executor[0]):
+                    obj._executable = executor[0]
+                    obj._dir = executor[1]
                     return obj
 
         obj.create_files(*args, **kwargs)
         obj.compile()
 
         if is_cached:
-            cls.compiled_binary_cache[cache_key] = obj
+            cache_file_path = os.path.join(tempfile.gettempdir(), cache_key + '.txt')
+            open(cache_file_path, 'w').write('\n'.join([str(obj._executable), str(obj._dir)]))
 
         return obj
 

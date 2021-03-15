@@ -319,6 +319,8 @@ class Tester:
     def parse_score(self, score):
         if score is None or score == '*':
             return None
+        elif isinstance(score, float):
+            return {float(score)}
         elif isinstance(score, (str, int)):
             return {int(score)}
         else:

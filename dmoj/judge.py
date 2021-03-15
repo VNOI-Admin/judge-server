@@ -219,7 +219,7 @@ class Judge:
         is_sc = result.result_flag & Result.SC
         colored_codes = ['#ansi[%s](%s|bold)' % ('--' if x == 'SC' else x, Result.COLORS_BYID[x]) for x in codes]
         colored_aux_codes = '{%s}' % ', '.join(colored_codes[1:]) if len(codes) > 1 else ''
-        colored_feedback = '(#ansi[%s](|underline)) ' % utf8text(result.feedback) if result.feedback else ''
+        colored_feedback = '(#ansi[%s](|underline)) ' % utf8text(result.feedback, 'replace') if result.feedback else ''
         if is_sc:
             case_info = ''
         else:
@@ -452,15 +452,6 @@ class JudgeWorker:
                 if ipc_recv_thread.is_alive():
                     logger.error('Judge IPC recv thread is still alive after timeout, shutting worker down anyway!')
 
-            # FIXME(tbrindus): we need to do this because cleaning up temporary directories happens on __del__, which
-            # won't get called if we exit the process right now (so we'd leak all files created by the grader). This
-            # should be refactored to have an explicit `cleanup()` or similar, rather than relying on refcounting
-            # working out.
-            from dmoj.executors.compiled_executor import _CompiledExecutorMeta
-
-            for cached_executor in _CompiledExecutorMeta.compiled_binary_cache.values():
-                cached_executor.is_cached = False
-                cached_executor.cleanup()
             self.grader = None
 
     def _grade_cases(self) -> Generator[Tuple[IPC, tuple], None, None]:

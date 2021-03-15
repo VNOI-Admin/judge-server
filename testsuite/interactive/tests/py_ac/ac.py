@@ -1,5 +1,5 @@
 from sys import stdout
-print 0
+print(0)
 stdout.flush()
-print input()
+print(input())
 stdout.flush()

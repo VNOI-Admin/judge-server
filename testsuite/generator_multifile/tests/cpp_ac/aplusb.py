@@ -1,1 +1,1 @@
-print sum(map(int, raw_input().split()))
+print(sum(map(int, input().split())))

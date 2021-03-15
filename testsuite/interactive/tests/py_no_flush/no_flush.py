@@ -1,2 +1,2 @@
-print 0
-print input()
+print(0)
+print(input())

@@ -1,10 +1,9 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from dmoj.executors.base_executor import BaseExecutor
 
 if TYPE_CHECKING:
     from dmoj.cptbox import TracedPopen
-    from dmoj.result import CheckerResult, Result
 
 
 class BaseContribModule:
@@ -33,8 +32,10 @@ class BaseContribModule:
         time_limit: float,
         memory_limit: int,
         feedback: str,
+        extended_feedback: str,
         name: str,
         stderr: bytes,
         show_feedback: bool = True,
-    ) -> Union['CheckerResult', 'Result', bool, None]:
+        **kwargs,
+    ):
         raise NotImplementedError

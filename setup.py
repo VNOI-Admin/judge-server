@@ -151,7 +151,7 @@ else:
     libs += ['seccomp']
 
 extensions = [
-    Extension('dmoj.checkers._checker', sources=['dmoj/checkers/_checker.c']),
+    Extension('dmoj.checkers._checker', sources=['dmoj/checkers/_checker.cpp']),
     Extension('dmoj.cptbox._cptbox', sources=cptbox_sources, language='c++', libraries=libs),
     SimpleSharedObject('dmoj.utils.setbufsize', sources=['dmoj/utils/setbufsize.c']),
 ]
