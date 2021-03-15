@@ -1,4 +1,4 @@
-language: CPP11
+language: CPP17
 time: 5
 memory: 65536
 source: aplusb.cpp

@@ -1,5 +1,5 @@
 import re
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from dmoj.contrib.testlib import ContribModule as TestlibContribModule
 from dmoj.error import InternalError
@@ -32,10 +32,12 @@ class ContribModule(TestlibContribModule):
         time_limit: float,
         memory_limit: int,
         feedback: str,
+        extended_feedback: str,
         name: str,
         stderr: bytes,
         show_feedback: bool = True,
-    ) -> Optional[CheckerResult]:
+        **kwargs,
+    ):
         if proc.returncode == cls.PARTIAL:
             match = cls.repartial.search(stderr)
             if not match:
@@ -44,8 +46,21 @@ class ContribModule(TestlibContribModule):
             if not 0.0 <= percentage <= 1.0:
                 raise InternalError(f'Invalid fraction: {utf8text(match.group(1))}')
             points = percentage * point_value
-            return CheckerResult(True, points, feedback=feedback)
+            if not show_feedback:
+                feedback = ''
+                extended_feedback = ''
+            return CheckerResult(True, points, feedback=feedback, extended_feedback=extended_feedback)
         else:
             return super().parse_return_code(
-                proc, executor, point_value, time_limit, memory_limit, feedback, name, stderr, show_feedback
+                proc,
+                executor,
+                point_value,
+                time_limit,
+                memory_limit,
+                feedback,
+                extended_feedback,
+                name,
+                stderr,
+                show_feedback,
+                **kwargs,
             )

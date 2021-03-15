@@ -2,5 +2,5 @@
 
 int main(int argc, char *argv[]) {
   registerTestlibCmd(argc, argv);
-  quitp(_pc(5 - 16), "");
+  quitp(5.4, "ahihi");
 }

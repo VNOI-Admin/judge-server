@@ -1,2 +1,2 @@
-A = [i for i in xrange(10**6)]
-print 'Hello, World!'
+A = [i for i in range(10**6)]
+print('Hello, World!')

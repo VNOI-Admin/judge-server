@@ -1,5 +1,5 @@
 import re
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from dmoj.contrib.default import ContribModule as DefaultContribModule
 from dmoj.error import InternalError
@@ -19,7 +19,7 @@ class ContribModule(DefaultContribModule):
     PARTIAL = 7
 
     name = 'testlib'
-    repartial = re.compile(br'^points (\d+)$', re.M)
+    repartial = re.compile(br'^points ([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)', re.M)
 
     @classmethod
     def get_interactor_args_format_string(cls) -> str:
@@ -38,30 +38,33 @@ class ContribModule(DefaultContribModule):
         time_limit: float,
         memory_limit: int,
         feedback: str,
+        extended_feedback: str,
         name: str,
         stderr: bytes,
         show_feedback: bool = True,
-    ) -> Optional[CheckerResult]:
-        if proc.returncode == cls.IE:  # we handle IE first because it should always return with feedback
-            raise InternalError(f'{name} failed assertion with message {feedback}')
+    ):
+        if proc.returncode == cls.IE:
+            raise InternalError('%s failed assertion with message %s %s' % (name, feedback, extended_feedback))
 
         if not show_feedback:
             feedback = ''
+            extended_feedback = ''
 
         if proc.returncode == cls.AC:
-            return CheckerResult(True, point_value, feedback=feedback)
+            return CheckerResult(True, point_value, feedback=feedback, extended_feedback=extended_feedback)
         elif proc.returncode == cls.PARTIAL:
             match = cls.repartial.search(stderr)
             if not match:
-                raise InternalError(f'Invalid stderr for partial points: {stderr!r}')
-            points = int(match.group(1))
+                raise InternalError('Invalid stderr for partial points: %r' % stderr)
+            points = float(match.group(1))
             if not 0 <= points <= point_value:
-                raise InternalError(f'Invalid partial points: {points:d}')
-            return CheckerResult(True, points, feedback=feedback)
+                raise InternalError('Invalid partial points: %f, must be between [%f; %f]' % (points, 0, point_value))
+            return CheckerResult(True, points, feedback=feedback, extended_feedback=extended_feedback)
         elif proc.returncode == cls.WA:
-            return CheckerResult(False, 0, feedback=feedback)
+            return CheckerResult(False, 0, feedback=feedback, extended_feedback=extended_feedback)
         elif proc.returncode == cls.PE:
-            return CheckerResult(False, 0, feedback=feedback or 'Presentation Error')
+            return CheckerResult(
+                False, 0, feedback=feedback or 'Presentation Error', extended_feedback=extended_feedback
+            )
         else:
             parse_helper_file_error(proc, executor, name, stderr, time_limit, memory_limit)
-            return None

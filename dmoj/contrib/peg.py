@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from dmoj.contrib.base import BaseContribModule
 from dmoj.executors.base_executor import BaseExecutor
@@ -25,12 +25,14 @@ class ContribModule(BaseContribModule):
         time_limit: float,
         memory_limit: int,
         feedback: str,
+        extended_feedback: str,
         name: str,
         stderr: bytes,
         show_feedback: bool = True,
-    ) -> Union[CheckerResult, bool, None]:
+    ):
         if not show_feedback:
             feedback = ''
+            extended_feedback = ''
 
         if proc.returncode in (cls.AC, cls.WA):
             # PEG allows for a ratio of floating points, and can give partials for AC or WA
@@ -44,8 +46,7 @@ class ContribModule(BaseContribModule):
                 else:
                     if percentage > 0:
                         # We like to return _AC for partials
-                        return CheckerResult(True, point_value * percentage)
+                        return CheckerResult(True, point_value * percentage, feedback, extended_feedback)
             return proc.returncode == cls.AC
         else:
             parse_helper_file_error(proc, executor, name, stderr, time_limit, memory_limit)
-            return None

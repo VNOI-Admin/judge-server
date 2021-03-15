@@ -2,7 +2,7 @@ checker:
   name: bridged
   args:
     files: check.cpp
-    lang: CPP11
+    lang: CPP17
     type: peg
 test_cases:
 - {in: in.txt, out: out.txt, points: 10}

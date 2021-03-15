@@ -28,8 +28,8 @@ def check(
     judge_output,
     problem_id,
     files,
-    lang,
     case,
+    lang='CPP17',
     time_limit=env['generator_time_limit'],
     memory_limit=env['generator_memory_limit'],
     compiler_time_limit=env['generator_compiler_limit'],
@@ -43,7 +43,7 @@ def check(
     executor = get_executor(problem_id, files, flags, lang, compiler_time_limit)
 
     if type not in contrib_modules:
-        raise InternalError(f'{type} is not a valid contrib module')
+        raise InternalError('%s is not a valid contrib module' % type)
 
     args_format_string = args_format_string or contrib_modules[type].ContribModule.get_checker_args_format_string()
 
@@ -67,7 +67,7 @@ def check(
         )
 
         proc_output, error = process.communicate()
-        proc_output = utf8text(proc_output)
+        proc_output = utf8text(proc_output, 'replace')
 
         return contrib_modules[type].ContribModule.parse_return_code(
             process,
@@ -75,7 +75,8 @@ def check(
             point_value,
             time_limit,
             memory_limit,
-            feedback=utf8text(proc_output),
+            feedback=proc_output,
+            extended_feedback=utf8text(error, 'replace'),
             name='checker',
             stderr=error,
             show_feedback=feedback,
