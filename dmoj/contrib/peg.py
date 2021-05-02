@@ -15,7 +15,7 @@ class ContribModule(DefaultContribModule):
         if proc.returncode in (cls.AC, cls.WA):
             # PEG allows for a ratio of floating points, and can give partials for AC or WA
             # Scanning for floating points with a regex is impractical, so we loop all lines
-            feedback_lines = extended_feedback.split('\n')
+            feedback_lines = feedback.split('\n')
             for line1, line2 in zip(feedback_lines, feedback_lines[1:]):
                 try:
                     percentage = float(line1) / float(line2)
