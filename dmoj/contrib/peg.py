@@ -11,7 +11,7 @@ class ContribModule(DefaultContribModule):
         return '{answer_file} {output_file} {input_file}'
 
     @classmethod
-    def parse_return_code(cls, proc, executor, point_value, time_limit, memory_limit, feedback, name, stderr):
+    def parse_return_code(cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr):
         if proc.returncode in (cls.AC, cls.WA):
             # PEG allows for a ratio of floating points, and can give partials for AC or WA
             # Scanning for floating points with a regex is impractical, so we loop all lines
@@ -24,7 +24,7 @@ class ContribModule(DefaultContribModule):
                 else:
                     if percentage > 0:
                         # We like to return _AC for partials
-                        return CheckerResult(True, point_value * percentage)
+                        return CheckerResult(True, point_value * percentage, feedback, extended_feedback)
             return proc.returncode == cls.AC
         else:
             parse_helper_file_error(proc, executor, name, stderr, time_limit, memory_limit)
