@@ -29,7 +29,6 @@ class ContribModule(DefaultContribModule):
             if not match:
                 raise InternalError('Invalid stderr for partial points: %r' % stderr)
             points = float(match.group(1))
-            print(points)
             if not 0 <= points <= point_value:
                 raise InternalError('Invalid partial points: %f, must be between [%f; %f]' % (points, 0, point_value))
             return CheckerResult(True, points, feedback=feedback, extended_feedback=extended_feedback)
