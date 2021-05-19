@@ -214,8 +214,8 @@ class CompiledExecutor(BaseExecutor, metaclass=_CompiledExecutorMeta):
         limit = env.compiler_output_character_limit
         try:
             output = safe_communicate(process, None, outlimit=limit, errlimit=limit)[self.compile_output_index]
-        except OutputLimitExceeded:
-            output = b'compiler output too long (> 64kb)'
+        except OutputLimitExceeded as e:
+            output = b'compiler output too long (> 64kb)\nMore informations: ' + str(e).encode()
 
         if self.is_failed_compile(process):
             if process.timed_out:
