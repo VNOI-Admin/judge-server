@@ -63,7 +63,7 @@ class GCCExecutor(SingleDigitVersionMixin, CompiledExecutor):
         command = self.get_command()
         assert command is not None
         return (
-            [command, '-H', '-Wall']
+            [command, '-Wall']
             + (['-fdiagnostics-color=always'] if self.has_color else [])
             + self.source_paths
             + self.get_defines()
