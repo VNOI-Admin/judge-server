@@ -99,6 +99,8 @@ jobs:
           mv scratch-run /usr/bin/scratch-run
           rm scratch-run.zip
 
+          /code/.docker/download_testlib_and_precompile
+
           runuser -u judge -w PATH /code/run-su
           EOF
 
@@ -172,6 +174,8 @@ jobs:
           unzip scratch-run.zip
           mv scratch-run /usr/bin/scratch-run
           rm scratch-run.zip
+
+          /code/.docker/download_testlib_and_precompile
 
           runuser -u judge -w PATH /code/run-su
           EOF
