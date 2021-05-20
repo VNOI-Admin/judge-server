@@ -10,6 +10,7 @@ RUN mkdir /judge /problems && cd /judge && \
 	/env/bin/python3 setup.py develop && \
 	HOME=~judge . ~judge/.profile && \
 	runuser -u judge -w PATH -- /env/bin/dmoj-autoconf -V > /judge-runtime-paths.yml && \
-	echo '  crt_x86_in_lib32: true' >> /judge-runtime-paths.yml
+	echo '  crt_x86_in_lib32: true' >> /judge-runtime-paths.yml && \
+	/judge/.docker/download_testlib_and_precompile
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/judge/.docker/entry"]
