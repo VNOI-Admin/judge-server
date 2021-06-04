@@ -1,13 +1,13 @@
 import re
 
-from dmoj.contrib.testlib import ContribModule as TestlibContribModule
+from dmoj.contrib.default import ContribModule as DefaultContribModule
 from dmoj.error import InternalError
 from dmoj.result import CheckerResult
 
 
-class ContribModule(TestlibContribModule):
+class ContribModule(DefaultContribModule):
     name = 'cms'
-    repartial = re.compile(br'^([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)', re.M)
+    repartial = re.compile(r'^([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)', re.M)
 
     @classmethod
     def get_checker_args_format_string(cls):
