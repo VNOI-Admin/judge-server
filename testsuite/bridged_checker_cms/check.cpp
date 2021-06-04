@@ -16,9 +16,7 @@ int main(int argc, char **argv) {
     return -1;
   }
   output_stream >> i;
-  if (i == 10) {
-    return 0;
-  } else if (1 <= i && i < 10) {
+  if (1 <= i && i <= 10) {
     std::cout << 1.0 * i / 10;
     return 0;
   } else {
