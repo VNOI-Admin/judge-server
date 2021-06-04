@@ -48,6 +48,7 @@ nosetests.xml
 *.obj
 *.exp
 *.pdb
+.vscode
 
 # Vim
 [._]*.s[a-v][a-z]
