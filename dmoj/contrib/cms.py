@@ -10,7 +10,7 @@ class ContribModule(TestlibContribModule):
     repartial = re.compile(r'^([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)', re.M)
 
     @classmethod
-    def get_interactor_args_format_string(cls):
+    def get_checker_args_format_string(cls):
         return '{input_file} {answer_file} {output_file}'
 
     @classmethod
@@ -23,6 +23,6 @@ class ContribModule(TestlibContribModule):
             if not 0.0 <= percentage <= 1.0:
                 raise InternalError('Invalid partial points: %f, must be between [0; 1]' % percentage)
             points = percentage * point_value
-            return CheckerResult(True, points, extended_feedback=extended_feedback)
+            return CheckerResult(percentage != 0, points, extended_feedback=extended_feedback)
         else:
             return CheckerResult(False, 0, feedback="Checker exitcode %d" % proc.returncode, extended_feedback=extended_feedback)
