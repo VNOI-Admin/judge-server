@@ -7,7 +7,7 @@ from dmoj.result import CheckerResult
 
 class ContribModule(TestlibContribModule):
     name = 'cms'
-    repartial = re.compile(r'^([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)', re.M)
+    repartial = re.compile(br'^([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)', re.M)
 
     @classmethod
     def get_checker_args_format_string(cls):
