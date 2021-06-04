@@ -49,6 +49,8 @@ def check(
         # Actually it should be `defines` instead of `flags`
         # but using `defines` requires more changes
         flags.append('-DTHEMIS')
+    elif type == 'cms':
+        flags.append('-DCMS')
     executor = get_executor(problem_id, files, flags, lang, compiler_time_limit)
 
     if type not in contrib_modules:
