@@ -98,6 +98,8 @@ class Result:
                 feedback = 'failed initializing'
             elif process.signal:
                 feedback = strsignal(process.signal).lower()
+            elif process.returncode:
+                feedback = f'Exit code {process.returncode}'
 
         if process.protection_fault:
             syscall, callname, args, update_errno = process.protection_fault
