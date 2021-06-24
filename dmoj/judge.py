@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import logging
 import os
-from shutil import Error
 import signal
 import sys
 import multiprocessing
@@ -468,7 +467,8 @@ class JudgeWorker:
         case_number = 0
         is_short_circuiting = False
         is_short_circuiting_enabled = self.submission.short_circuit
-        judged_results = {}
+        judged_results: Dict[Tuple[str, str, int], Optional[Result]] = {}
+        result: Optional[Result] = None
         for batch_number, cases in groupby(flattened_cases, key=itemgetter(0)):
             if batch_number:
                 yield IPC.BATCH_BEGIN, (batch_number,)
@@ -481,16 +481,16 @@ class JudgeWorker:
                     result = Result(case, result_flag=Result.SC)
                 else:
                     # Just in case the `case` doesn't have the config
-                    if case.config['in']:
-                        case_key = (case.config['in'], case.points)
+                    if case.config['in'] and case.config['out']:
+                        case_key = (case.config['in'], case.config['out'], case.points)
                         result = judged_results.get(case_key, None)
                     else:
                         result = None
 
                     if result is None:
                         result = self.grader.grade(case)
-                        if case.config['in']:
-                            case_key = (case.config['in'], case.points)
+                        if case.config['in'] and case.config['out']:
+                            case_key = (case.config['in'], case.config['out'], case.points)
                             judged_results[case_key] = result
 
                     # If the submission was killed due to a user-initiated abort, any result is meaningless.
