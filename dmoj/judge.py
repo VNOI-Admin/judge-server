@@ -489,6 +489,8 @@ class JudgeWorker:
         case_number = 0
         is_short_circuiting = False
         is_short_circuiting_enabled = self.submission.short_circuit
+        judged_results: Dict[Tuple[str, str], Optional[Result]] = {}
+        result: Optional[Result] = None
         passed_batches: Set[int] = set()
         for batch_number, cases in groupby(flattened_cases, key=itemgetter(0)):
             if batch_number:
@@ -500,14 +502,29 @@ class JudgeWorker:
 
             for _, case in cases:
                 case_number += 1
+                assert isinstance(case, TestCase)
 
                 # Stop grading if we're short circuiting
                 if is_short_circuiting:
-                    assert isinstance(case, TestCase)
                     result = Result(case, result_flag=Result.SC)
                 else:
-                    assert isinstance(case, TestCase)
-                    result = self.grader.grade(case)
+                    case_cache_key = (case.config['in'], case.config['out'])
+                    result = judged_results.get(case_cache_key, None)
+
+                    if result is None:
+                        result = self.grader.grade(case)
+                        # only cache on case has positive points
+                        if case.points != 0 and case_cache_key != (None, None):
+                            judged_results[case_cache_key] = result
+                    else:
+                        # TODO: this is a bit of a hack, but it's the best we can do for now
+
+                        # Cache hit, now we need to change the points of the result
+                        # new_points = new_case_points * old_points / old_case_points
+
+                        # result.case.points will always positive, since we only cache cases that have non-zero points
+                        result.points = case.points * result.points / result.case.points
+                        result.case = case
 
                     # If the submission was killed due to a user-initiated abort, any result is meaningless.
                     if self._abort_requested:
