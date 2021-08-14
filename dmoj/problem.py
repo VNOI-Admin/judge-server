@@ -368,6 +368,11 @@ class TestCase:
         if not hasattr(checker, 'check') or not callable(checker.check):
             raise InvalidInitException('malformed checker: no check method found')
 
+        # Themis checker need input name and output name
+        if self.config['in']:
+            params['input_name'] = self.config['in']
+        if self.config['out']:
+            params['output_name'] = self.config['out']
         return partial(checker.check, **params)
 
     def free_data(self):
