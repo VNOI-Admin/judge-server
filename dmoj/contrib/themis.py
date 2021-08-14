@@ -1,5 +1,3 @@
-import re
-
 from dmoj.contrib.default import ContribModule as DefaultContribModule
 from dmoj.error import InternalError
 from dmoj.result import CheckerResult
@@ -22,9 +20,9 @@ class ContribModule(DefaultContribModule):
             return CheckerResult(False, 0, feedback=f"Checker exitcode {proc.returncode}", extended_feedback=extended_feedback)
         else:
             points = float(feedback.split('\n')[1]) * point_value
-            # TODO (thuc): We should check 0 <= points <= point_value, but I don't want to raise an internal error 
+            # TODO (thuc): We should check 0 <= points <= point_value, but I don't want to raise an internal error
             # So I skip the check.
-            
+
             # Use points != 0 is kinda risky because of the floating points
             return CheckerResult(True if points >= 1e-6 else False, points, feedback=feedback, extended_feedback=extended_feedback)
 
