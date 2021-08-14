@@ -25,4 +25,3 @@ class ContribModule(DefaultContribModule):
 
             # Use points != 0 is kinda risky because of the floating points
             return CheckerResult(True if points >= 1e-6 else False, points, feedback=feedback, extended_feedback=extended_feedback)
-
