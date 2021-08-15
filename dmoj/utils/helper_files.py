@@ -19,6 +19,10 @@ def mktemp(data: bytes) -> IO:
     return tmp
 
 
+def mkdtemp():
+    return tempfile.TemporaryDirectory()
+
+
 def compile_with_auxiliary_files(
     filenames: Sequence[str],
     flags: List[str] = [],
