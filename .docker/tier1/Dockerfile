@@ -11,5 +11,20 @@ RUN mkdir /judge /problems && cd /judge && \
 	g++ -std=c++17 -Wall -DONLINE_JUDGE -O2 -fmax-errors=5 -march=native -s /usr/include/testlib.h && \
 	find /usr/include/ -name stdc++.h -exec g++ -std=c++17 -Wall -DONLINE_JUDGE -O2 -fmax-errors=5 -march=native -s {} \;
 
+RUN apt-get update && apt-get install -y git cmake
+
+# Install scratch compiler
+RUN mkdir /scratch_compiler && cd /scratch_compiler && \
+	curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
+	pip3 install -e . && \
+	echo '  scrapec: /usr/local/bin/scrapec' >> /judge-runtime-paths.yml
+
+# Install scratch interpreter
+RUN mkdir /scratch_interpreter && cd /scratch_interpreter && \
+	curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1 && \
+	mkdir build && \
+	cd build && \
+	cmake .. && \
+	make install
 
 ENTRYPOINT ["/judge/.docker/entry"]
