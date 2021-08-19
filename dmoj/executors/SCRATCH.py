@@ -40,8 +40,12 @@ https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80
         return content
 
     def create_files(self, problem_id: str, source_code: bytes, *args, **kwargs) -> None:
-        if 'meta' in kwargs and kwargs['meta'].get('file_only', False):
-            source_code = self.download_source_code(source_code.decode().strip(), kwargs['meta']['file_size_limit'])
+        if problem_id == self.test_name or ('meta' in kwargs and kwargs['meta'].get('file_only', False)):
+            source_code = self.download_source_code(
+                source_code.decode().strip(),
+                1 if problem_id == self.test_name else kwargs['meta']['file_size_limit']
+            )
+
         return super(Executor, self).create_files(problem_id, source_code, *args, **kwargs)
 
     def get_executable(self) -> str:
