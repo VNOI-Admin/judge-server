@@ -50,6 +50,7 @@ class BaseExecutor(PlatformExecutorMixin):
         self.source = source_code
         self._hints = hints or []
         self.unbuffered = unbuffered
+        self.meta = None
 
         for arg, value in kwargs.items():
             if not hasattr(self, arg):
