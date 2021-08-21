@@ -90,6 +90,8 @@ jobs:
           curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
           "$PYTHON" -m pip install -e .
 
+          which scrapec
+
           mkdir /scratch_interpreter && cd /scratch_interpreter && \
           curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1 && \
           mkdir build && \
