@@ -77,7 +77,6 @@ jobs:
           export PYTHONUNBUFFERED=1
           export LANG=C.UTF-8
           export PYTHONIOENCODING=utf8
-          export PYTHONPATH=$PYTHONPATH:/usr/local/bin
 
           cd /code
           export PYTHON="/code/python${{ matrix.python-version }}/bin/python${{ matrix.python-version }}"
@@ -90,7 +89,9 @@ jobs:
           apt-get update && apt-get install -y git cmake
           mkdir /scratch_compiler && cd /scratch_compiler && \
           curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
-          "$PYTHON" -m pip install -e . --install-option="--install-dir=/usr/local/bin"
+          "$PYTHON" -m pip install -e .
+
+          ln -s /code/python3.9/bin/scrapec /usr/local/bin/scrapec
 
           mkdir /scratch_interpreter && cd /scratch_interpreter && \
           curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1 && \
