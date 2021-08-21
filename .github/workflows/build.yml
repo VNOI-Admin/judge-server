@@ -77,23 +77,21 @@ jobs:
           export PYTHONUNBUFFERED=1
           export LANG=C.UTF-8
           export PYTHONIOENCODING=utf8
+          
+          apt-get update && apt-get install -y git cmake
+          mkdir /scratch_compiler && cd /scratch_compiler
+          curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1
+          "$PYTHON" -m pip install -e .
+
+          mkdir /scratch_interpreter && cd /scratch_interpreter
+          curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1
+          mkdir build && cd build && cmake .. &&  make install
+
           cd /code
           export PYTHON="/code/python${{ matrix.python-version }}/bin/python${{ matrix.python-version }}"
           "$PYTHON" -m pip install --upgrade pip wheel
           "$PYTHON" -m pip install cython coverage
           "$PYTHON" -m pip install -e .[test]
-
-          apt-get update && apt-get install -y git cmake
-          mkdir /scratch_compiler && cd /scratch_compiler && \
-          curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
-          "$PYTHON" -m pip install -e .
-
-          mkdir /scratch_interpreter && cd /scratch_interpreter && \
-          curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1 && \
-          mkdir build && \
-          cd build && \
-          cmake .. && \
-          make install
 
           chmod o+w .
           runuser -u judge -w PATH /code/run-su
