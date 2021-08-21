@@ -91,7 +91,7 @@ jobs:
           curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
           "$PYTHON" -m pip install -e .
 
-          ln -s /code/python3.9/bin/scrapec /usr/local/bin/scrapec
+          ln -s /code/python${{ matrix.python-version }}/bin/scrapec /usr/local/bin/scrapec
 
           mkdir /scratch_interpreter && cd /scratch_interpreter && \
           curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1 && \
