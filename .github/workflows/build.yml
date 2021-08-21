@@ -83,6 +83,8 @@ jobs:
           "$PYTHON" -m pip install cython coverage
           "$PYTHON" -m pip install -e .[test]
 
+          chmod o+w .
+
           apt-get update && apt-get install -y git cmake
           mkdir /scratch_compiler && cd /scratch_compiler && \
           curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
@@ -95,7 +97,6 @@ jobs:
           cmake .. && \
           make install
 
-          chmod o+w .
           runuser -u judge -w PATH /code/run-su
           EOF
 
