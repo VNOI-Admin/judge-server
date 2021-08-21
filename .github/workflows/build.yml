@@ -90,7 +90,7 @@ jobs:
           apt-get update && apt-get install -y git cmake
           mkdir /scratch_compiler && cd /scratch_compiler && \
           curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
-          "$PYTHON" -m pip install . --target /usr/local/bin
+          "$PYTHON" -m pip install -e . --install-option="--install-dir=/usr/local/bin"
 
           mkdir /scratch_interpreter && cd /scratch_interpreter && \
           curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1 && \
