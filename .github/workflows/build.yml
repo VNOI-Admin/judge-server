@@ -73,7 +73,7 @@ jobs:
       - name: Create docker scripts
         run: |
           cat > run <<'EOF'
-          #!/bin/bash -e
+          #!/bin/bash
           export PYTHONUNBUFFERED=1
           export LANG=C.UTF-8
           export PYTHONIOENCODING=utf8
@@ -89,6 +89,10 @@ jobs:
           mkdir /scratch_compiler && cd /scratch_compiler && \
           curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
           "$PYTHON" -m pip install -e .
+
+          ls -la /usr/local/bin/
+
+          ls -la /usr/bin/ | grep scrapec
 
           which scrapec
 
