@@ -80,7 +80,6 @@ jobs:
 
           cd /code
           export PYTHON="/code/python${{ matrix.python-version }}/bin/python${{ matrix.python-version }}"
-          export PATH=$PATH:/code/python${{ matrix.python-version }}/bin
           "$PYTHON" -m pip install --upgrade pip wheel
           "$PYTHON" -m pip install cython coverage
           "$PYTHON" -m pip install -e .[test]
@@ -91,6 +90,8 @@ jobs:
           mkdir /scratch_compiler && cd /scratch_compiler && \
           curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
           "$PYTHON" -m pip install -e .
+
+          ln -s /code/python${{ matrix.python-version }}/bin/scrapec /usr/local/bin/scrapec
 
           mkdir /scratch_interpreter && cd /scratch_interpreter && \
           curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1 && \
