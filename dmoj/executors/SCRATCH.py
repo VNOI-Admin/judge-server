@@ -1,19 +1,16 @@
 import requests
 
 from dmoj.error import CompileError
-from dmoj.executors.compiled_executor import CompiledExecutor
+from dmoj.executors.script_executor import ScriptExecutor
 
 
-class Executor(CompiledExecutor):
+class Executor(ScriptExecutor):
     ext = 'sc3'
     name = 'SCRATCH'
-    command = 'scrapec'
+    command = 'scratch-run'
     test_program = '''\
 https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80bdf795fde02641e2b2cf4011a6b266896/test.sb3
 '''
-
-    def get_compile_args(self):
-        return [self.get_command(), self._code, '-o', self.get_compiled_file()]
 
     def download_source_code(self, link, file_size_limit):
         # MB to bytes
@@ -47,12 +44,3 @@ https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80
             )
 
         return super(Executor, self).create_files(problem_id, source_code, *args, **kwargs)
-
-    def get_executable(self) -> str:
-        return '/usr/local/bin/scrape'
-
-    def get_cmdline(self, **kwargs):
-        return [
-            '/usr/local/bin/scrape',
-            self.get_compiled_file(),
-        ]

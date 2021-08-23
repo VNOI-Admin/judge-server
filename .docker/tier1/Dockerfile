@@ -1,23 +1,18 @@
 FROM dmoj/runtimes-tier1
 
 ARG TAG=master
-RUN apt-get update && apt-get install -y git cmake
-
-# Install scratch compiler
-RUN mkdir /scratch_compiler && cd /scratch_compiler && \
-	curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
-	pip3 install -e .
+RUN apt-get update && apt-get install -y npm 
 
 # Install scratch interpreter
 RUN mkdir /scratch_interpreter && cd /scratch_interpreter && \
-	curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1 && \
-	mkdir build && \
-	cd build && \
-	cmake .. && \
-	make install
+	curl -L https://github.com/VNOI-Admin/scratch-run/archive/master.tar.gz | tar -xz --strip-components=1 && \
+	npm install -g pkg && \
+	npm install && \
+	pkg index.js -t node12-linux-x64 && \
+	mv index /usr/bin/scratch-run
 
 RUN mkdir /judge /problems && cd /judge && \
-	curl -L https://github.com/VNOI-Admin/judge-server/archive/"${TAG}".tar.gz | tar -xz --strip-components=1 && \
+	curl -L https://github.com/VNOI-Admin/judge-server/archive/scratch.tar.gz | tar -xz --strip-components=1 && \
 	pip3 install -e . && \
 	HOME=~judge . ~judge/.profile && \
 	runuser -u judge -w PATH -- dmoj-autoconf -V > /judge-runtime-paths.yml && \
