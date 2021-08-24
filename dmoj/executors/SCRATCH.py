@@ -21,6 +21,10 @@ class Executor(ScriptExecutor):
 https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80bdf795fde02641e2b2cf4011a6b266896/test.sb3
 '''
 
+    def __init__(self, problem_id, source_code, **kwargs):
+        super().__init__(problem_id, source_code, **kwargs)
+        self.meta = kwargs.get('meta', {})
+
     def download_source_code(self, link, file_size_limit):
         # MB to bytes
         file_size_limit = file_size_limit * 1024 * 1024
@@ -46,10 +50,10 @@ https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80
         return content
 
     def create_files(self, problem_id, source_code, *args, **kwargs):
-        if problem_id == self.test_name or ('meta' in kwargs and kwargs['meta'].get('file_only', False)):
+        if problem_id == self.test_name or self.meta.file_only:
             source_code = self.download_source_code(
                 source_code.decode().strip(),
-                1 if problem_id == self.test_name else kwargs['meta']['file_size_limit']
+                1 if problem_id == self.test_name else (self.meta.file_size_limit or 1)
             )
 
         super().create_files(problem_id, source_code, *args, **kwargs)
