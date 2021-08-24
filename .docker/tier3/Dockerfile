@@ -2,6 +2,10 @@ FROM dmoj/runtimes-tier3
 
 ARG TAG=master
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends unzip && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install scratch interpreter
 RUN curl --location -o scratch-run.zip https://github.com/VNOI-Admin/scratch-run/releases/download/0.0.2/scratch-run_0.0.2_linux_amd64.zip && \
 	unzip scratch-run.zip && \
