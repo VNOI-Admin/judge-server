@@ -8,8 +8,15 @@ class Executor(ScriptExecutor):
     ext = 'sc3'
     name = 'SCRATCH'
     command = 'scratch-run'
-    syscalls = ['eventfd2', 'statx', 'epoll_ctl', 'epoll_wait', 'epoll_create1']
-    test_memory= 1024 * 1024  # 1GB
+    nproc = -1
+    address_grace = 1048576
+    syscalls = [
+        'eventfd2',
+        'epoll_create1',
+        'epoll_ctl',
+        'epoll_wait',
+        'statx',
+    ]
     test_program = '''\
 https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80bdf795fde02641e2b2cf4011a6b266896/test.sb3
 '''

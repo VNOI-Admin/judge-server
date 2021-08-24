@@ -1,20 +1,12 @@
 FROM dmoj/runtimes-tier3
 
 ARG TAG=master
-RUN apt-get update && apt-get install -y git cmake
-
-# Install scratch compiler
-RUN mkdir /scratch_compiler && cd /scratch_compiler && \
-	curl -L https://github.com/scraterpreter/scrapec/archive/master.tar.gz | tar -xz --strip-components=1 && \
-	pip3 install -e .
 
 # Install scratch interpreter
-RUN mkdir /scratch_interpreter && cd /scratch_interpreter && \
-	curl -L https://github.com/khuebeo/scrape/archive/master.tar.gz | tar -xz --strip-components=1 && \
-	mkdir build && \
-	cd build && \
-	cmake .. && \
-	make install
+RUN curl --location -o scratch-run.zip https://github.com/VNOI-Admin/scratch-run/releases/download/0.0.2/scratch-run_0.0.2_linux_amd64.zip && \
+	unzip scratch-run.zip && \
+	mv scratch-run /usr/bin/scratch-run && \
+	rm scratch-run.zip
 
 RUN mkdir /judge /problems && cd /judge && \
 	curl -L https://github.com/VNOI-Admin/judge-server/archive/"${TAG}".tar.gz | tar -xz --strip-components=1 && \
