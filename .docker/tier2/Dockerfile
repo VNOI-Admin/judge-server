@@ -7,7 +7,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install scratch interpreter
-RUN curl --location -o scratch-run.zip https://github.com/VNOI-Admin/scratch-run/releases/download/0.0.2/scratch-run_0.0.2_linux_amd64.zip && \
+RUN curl --location -o scratch-run.zip $(curl -s https://api.github.com/repos/VNOI-Admin/scratch-run/releases/latest | grep -o -m 1 "https://github\.com.*.*linux_amd64\.zip") && \
 	unzip scratch-run.zip && \
 	mv scratch-run /usr/bin/scratch-run && \
 	rm scratch-run.zip
