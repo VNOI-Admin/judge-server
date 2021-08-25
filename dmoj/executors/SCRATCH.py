@@ -1,3 +1,4 @@
+from dmoj.utils.unicode import utf8text
 import requests
 
 from dmoj.error import CompileError
@@ -57,3 +58,6 @@ https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80
             )
 
         super().create_files(problem_id, source_code, *args, **kwargs)
+    
+    def parse_feedback_from_stderr(self, stderr, process):
+        return utf8text(stderr, 'replace')
