@@ -1,7 +1,8 @@
 import requests
 
-from dmoj.error import CompileError
+from dmoj.error import CompileError, InternalError
 from dmoj.executors.script_executor import ScriptExecutor
+from dmoj.result import Result
 from dmoj.utils.unicode import utf8text
 
 
@@ -34,7 +35,7 @@ https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80
         try:
             r.raise_for_status()
         except Exception as e:
-            raise CompileError(repr(e))
+            raise InternalError(repr(e))
 
         if int(r.headers.get('Content-Length')) > file_size_limit:
             raise CompileError(f"Response size ({r.headers.get('Content-Length')}) is larger than file size limit")
@@ -59,5 +60,14 @@ https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80
 
         super().create_files(problem_id, source_code, *args, **kwargs)
 
+    def populate_result(self, stderr, result, process):
+        super().populate_result(stderr, result, process)
+        if process.is_ir and b'scratch-vm encountered an error' in stderr:
+            result.result_flag |= Result.RTE
+
     def parse_feedback_from_stderr(self, stderr, process):
-        return utf8text(stderr, 'replace')
+        log = utf8text(stderr, 'replace')
+        if b'scratch-vm encountered an error' in stderr:
+            return log.replace('scratch-vm encountered an error: ', '')
+        else:
+            raise InternalError(log)
