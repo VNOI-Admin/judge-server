@@ -141,7 +141,7 @@ class BaseExecutor(PlatformExecutorMixin):
         try:
             executor = cls(cls.test_name, utf8bytes(cls.test_program))
             proc = executor.launch(
-                time=cls.test_time, memory=cls.test_memory, stdin=subprocess.PIPE, stdout=subprocess.PIPE
+                time=cls.test_time, memory=cls.test_memory, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
 
             test_message = b'echo: Hello, World!'
