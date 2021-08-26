@@ -146,6 +146,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
         self.source = source_code
         self._hints = hints or []
         self.unbuffered = unbuffered
+        self.meta: Dict[str, Any] = {}
 
         for arg, value in kwargs.items():
             if not hasattr(self, arg):

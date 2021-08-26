@@ -93,6 +93,12 @@ jobs:
           "$PYTHON" -m pip install cython coverage
           "$PYTHON" -m pip install -e .[test]
           chmod o+w .
+
+          curl --location -o scratch-run.zip $(curl -s https://api.github.com/repos/VNOI-Admin/scratch-run/releases/latest | grep -o -m 1 "https://github\.com.*.*linux_amd64\.zip")
+          unzip scratch-run.zip
+          mv scratch-run /usr/bin/scratch-run
+          rm scratch-run.zip
+
           runuser -u judge -w PATH /code/run-su
           EOF
 
@@ -161,6 +167,12 @@ jobs:
           "$PYTHON" -m pip install cython coverage
           "$PYTHON" -m pip install -e .[test]
           chmod o+w .
+
+          curl --location -o scratch-run.zip $(curl -s https://api.github.com/repos/VNOI-Admin/scratch-run/releases/latest | grep -o -m 1 "https://github\.com.*.*linux_arm64\.zip")
+          unzip scratch-run.zip
+          mv scratch-run /usr/bin/scratch-run
+          rm scratch-run.zip
+
           runuser -u judge -w PATH /code/run-su
           EOF
 
