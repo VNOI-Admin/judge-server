@@ -5,6 +5,7 @@ from dmoj.error import CompileError
 from dmoj.executors.python_executor import PythonExecutor
 from dmoj.utils.helper_files import download_source_code
 
+
 class Executor(PythonExecutor):
     loader_script = '''\
 import runpy, sys, os
@@ -39,7 +40,7 @@ https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/3b6060e
 
     def validate_file(self, source_code):
         try:
-            with ZipFile(BytesIO(source_code)) as f:
+            with ZipFile(BytesIO(source_code)):
                 pass
         except Exception as e:
             raise CompileError(repr(e))

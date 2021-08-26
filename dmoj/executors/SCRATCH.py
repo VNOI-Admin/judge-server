@@ -1,7 +1,6 @@
 import os
 import shutil
 import subprocess
-import requests
 
 from dmoj.cptbox import TracedPopen
 from dmoj.error import CompileError, InternalError
