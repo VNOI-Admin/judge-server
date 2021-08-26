@@ -45,7 +45,7 @@ https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80
             raise InternalError(repr(e))
 
         if int(r.headers.get('Content-Length')) > file_size_limit:
-            raise CompileError(f"Response size ({r.headers.get('Content-Length')}) is larger than file size limit")
+            raise InternalError(f"Response size ({r.headers.get('Content-Length')}) is larger than file size limit")
 
         size = 0
         content = b''
@@ -54,7 +54,7 @@ https://gist.github.com/leduythuccs/c0dc83d4710e498348dc4c600a5cc209/raw/baf1d80
             size += len(chunk)
             content += chunk
             if size > file_size_limit:
-                raise CompileError('response too large')
+                raise InternalError('response too large')
 
         return content
 
