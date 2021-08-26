@@ -1,0 +1,7 @@
+language: SCRATCH
+time: 2
+memory: 262144
+source: link.txt
+expect: CE
+meta:
+  file-only: True

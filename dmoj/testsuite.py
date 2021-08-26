@@ -253,6 +253,7 @@ class Tester:
 
         time = config['time']
         memory = config['memory']
+        meta = config.get('meta', {})
         if isinstance(config['source'], str):
             with open(os.path.join(case_dir, config['source'])) as f:
                 sources = [f.read()]
@@ -289,7 +290,7 @@ class Tester:
                 extended_feedback_cases,
             )
             self.judge.begin_grading(
-                Submission(self.sub_id, problem, language, source, time, memory, False, {}),
+                Submission(self.sub_id, problem, language, source, time, memory, False, meta),
                 blocking=True,
                 report=output_case,
             )

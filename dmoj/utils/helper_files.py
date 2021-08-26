@@ -2,6 +2,8 @@ import os
 import tempfile
 from typing import IO, List, Optional, Sequence, TYPE_CHECKING
 
+import requests
+
 from dmoj.cptbox.filesystem_policies import RecursiveDir
 from dmoj.error import InternalError
 from dmoj.result import Result
@@ -110,3 +112,29 @@ def parse_helper_file_error(
         return
 
     raise InternalError(error)
+
+
+def download_source_code(link, file_size_limit):
+    # MB to bytes
+    file_size_limit = file_size_limit * 1024 * 1024
+
+    r = requests.get(link, stream=True)
+    try:
+        r.raise_for_status()
+    except Exception as e:
+        raise InternalError(repr(e))
+
+    if int(r.headers.get('Content-Length', 0)) > file_size_limit:
+        raise InternalError(f"Response size ({r.headers.get('Content-Length')}) is larger than file size limit")
+
+    size = 0
+    content = b''
+
+    for chunk in r.iter_content(1024 * 1024):
+        size += len(chunk)
+        content += chunk
+        if size > file_size_limit:
+            raise InternalError('response too large')
+
+    return content
+
