@@ -21,12 +21,22 @@ class OutputOnlyGrader(StandardGrader):
         """
         return None
 
-    def _interact_with_zipfile(self, result, output_name):
-        if output_name not in self.zip_file.namelist():
+    def _interact_with_zipfile(self, result, case):
+        output_name = case.config['out']
+
+        try:
+            info = self.zip_file.getinfo(output_name)
+        except KeyError:
             result.feedback = "`" + output_name + "` not found in zip file"
             result.result_flag = Result.WA
-        else:
-            result.proc_output = self.zip_file.open(output_name).read()
+            return
+
+        if info.file_size > case.config.output_limit_length:
+            result.feedback = f"Output is too long ({info.file_size} > {case.config.output_limit_length})"
+            result.result_flag = Result.OLE
+            return
+
+        result.proc_output = self.zip_file.open(output_name).read()
 
     def get_zip_file(self):
         zip_data = download_source_code(
@@ -41,7 +51,7 @@ class OutputOnlyGrader(StandardGrader):
     def grade(self, case):
         result = Result(case)
 
-        self._interact_with_zipfile(result, case.config['out'])
+        self._interact_with_zipfile(result, case)
 
         check = self.check_result(case, result)
 

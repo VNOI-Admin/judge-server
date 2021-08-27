@@ -1,0 +1,5 @@
+language: OUTPUT
+time: 2
+memory: 65536
+source: link.txt
+expect: OLE
