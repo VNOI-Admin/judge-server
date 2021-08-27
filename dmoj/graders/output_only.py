@@ -30,7 +30,7 @@ class OutputOnlyGrader(StandardGrader):
 
     def get_zip_file(self):
         zip_data = download_source_code(
-            utf8text(self.source),
+            utf8text(self.source).strip(),
             self.problem.meta.get('file-size-limit', 1)
         )
         try:
