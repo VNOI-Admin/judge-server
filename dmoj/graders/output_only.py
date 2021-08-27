@@ -1,10 +1,11 @@
+import time
 from io import BytesIO
 from zipfile import BadZipFile, ZipFile
 
 from dmoj.error import CompileError
 from dmoj.graders.standard import StandardGrader
 from dmoj.result import CheckerResult, Result
-from dmoj.utils.helper_files import download_source_code
+from dmoj.utils.helper_files import download_source_code, FunctionTimeout
 from dmoj.utils.unicode import utf8text
 
 
@@ -51,7 +52,14 @@ class OutputOnlyGrader(StandardGrader):
     def grade(self, case):
         result = Result(case)
 
-        self._interact_with_zipfile(result, case)
+        start_time = time.time()
+        try:
+            with FunctionTimeout(seconds=self.problem.time_limit):
+                self._interact_with_zipfile(result, case)
+        except TimeoutError:
+            result.result_flag |= Result.TLE
+
+        result.execution_time = time.time() - start_time
 
         check = self.check_result(case, result)
 
