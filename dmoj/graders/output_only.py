@@ -7,6 +7,7 @@ from dmoj.result import CheckerResult, Result
 from dmoj.utils.helper_files import download_source_code
 from dmoj.utils.unicode import utf8text
 
+
 class OutputOnlyGrader(StandardGrader):
     def __init__(self, judge, problem, language, source):
         if language != 'OUTPUT':
