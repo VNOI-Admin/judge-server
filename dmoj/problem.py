@@ -11,7 +11,6 @@ from yaml.parser import ParserError
 from yaml.scanner import ScannerError
 
 from dmoj import checkers
-from dmoj import config
 from dmoj.config import ConfigNode, InvalidInitException
 from dmoj.judgeenv import env, get_problem_root
 from dmoj.utils.helper_files import compile_with_auxiliary_files, parse_helper_file_error
