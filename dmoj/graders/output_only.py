@@ -11,15 +11,14 @@ from dmoj.utils.unicode import utf8text
 
 class OutputOnlyGrader(StandardGrader):
     def __init__(self, judge, problem, language, source):
-        if language != 'OUTPUT':
-            raise CompileError("Need to use OUTPUT language")
         super().__init__(judge, problem, language, source)
-        self.zip_file = self.get_zip_file()
+        if language == 'OUTPUT':
+            self.zip_file = self.get_zip_file()
 
     def _generate_binary(self):
-        """
-        The super().__init__ uses this function
-        """
+        if self.language != 'OUTPUT':
+            return super()._generate_binary()
+
         return None
 
     def _interact_with_zipfile(self, result, case):
@@ -50,6 +49,9 @@ class OutputOnlyGrader(StandardGrader):
             raise CompileError(repr(e))
 
     def grade(self, case):
+        if self.language != 'OUTPUT':
+            return super().grade(case)
+
         result = Result(case)
 
         start_time = time.time()
