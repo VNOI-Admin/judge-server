@@ -1,4 +1,5 @@
 import os
+import signal
 import tempfile
 from typing import IO, List, Optional, Sequence, TYPE_CHECKING
 
@@ -138,3 +139,18 @@ def download_source_code(link, file_size_limit):
 
     return content
 
+
+class FunctionTimeout:
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError(self.error_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.setitimer(signal.ITIMER_REAL, self.seconds)
+
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
