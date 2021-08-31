@@ -153,6 +153,8 @@ class Problem:
             return graders.BridgedInteractiveGrader
         elif 'output_only' in self.config:
             return graders.OutputOnlyGrader
+        elif 'communication' in self.config:
+            return graders.CommunicationGrader
         else:
             return graders.StandardGrader
 
