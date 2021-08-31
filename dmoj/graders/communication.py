@@ -1,5 +1,6 @@
 import os
 import shlex
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -10,52 +11,108 @@ from dmoj.error import InternalError
 from dmoj.executors import executors
 from dmoj.graders.standard import StandardGrader
 from dmoj.judgeenv import env, get_problem_root
+from dmoj.result import Result
 from dmoj.utils.helper_files import compile_with_auxiliary_files
-from dmoj.utils.unicode import utf8bytes
+from dmoj.utils.unicode import utf8bytes, utf8text
+
+stdin_fd_flags = os.O_RDONLY
+stdout_fd_flags = os.O_WRONLY | os.O_TRUNC | os.O_CREAT
+stdout_fd_mode = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IWUSR
+
+
+def merge_results(first_result, second_result, concurrent=True):
+    """
+    Merge second_result into first_result and return first_result
+    """
+    if second_result is None:
+        raise InternalError("The second result cannot be None")
+    if first_result is None:
+        return second_result
+
+    first_result.execution_time += second_result.execution_time
+
+    if concurrent:
+        first_result.wall_clock_time = max(first_result.wall_clock_time, second_result.wall_clock_time)
+        first_result.max_memory += second_result.max_memory
+    else:
+        first_result.wall_clock_time += second_result.wall_clock_time
+        first_result.max_memory = max(first_result.max_memory, second_result.max_memory)
+
+    first_result.result_flag |= second_result.result_flag
+
+    return first_result
 
 
 class CommunicationGrader(StandardGrader):
     def __init__(self, judge, problem, language, source):
         super().__init__(judge, problem, language, source)
+
         self.handler_data = self.problem.config.communication
-        self.manager_binary = self._generate_manager_binary()
-        self.num_processes = self.handler_data.get('num_processes', 1)
+        if 'manager' not in self.handler_data:
+            raise InternalError('missing manager config')
+
         self.contrib_type = self.handler_data.get('type', 'default')
         if self.contrib_type not in contrib_modules:
             raise InternalError('%s is not a valid contrib module' % self.contrib_type)
 
+        self.manager_binary = self._generate_manager_binary()
+        self.num_processes = self.handler_data.get('num_processes', 1)
+
     def populate_result(self, error, result, process):
-        raise NotImplementedError()
+        final_user_result = None
+        for i in range(self.num_processes):
+            _user_proc, _user_result = self._user_procs[i], self._user_results[i]
+            self.binary.populate_result(_user_proc.stderr.read(), _user_result, _user_proc)
+            merge_results(final_user_result, _user_result)
+
+        # The actual running time is the sum of every user process, but each
+        # sandbox can only check its own; if the sum is greater than the time
+        # limit we adjust the result.
+        if final_user_result.execution_time > self.problem.time_limit:
+            result.result_flag |= Result.TLE
+
+        merge_results(result, final_user_result)
+
 
     def check_result(self, case, result):
-        raise NotImplementedError()
+        stderr = self._manager_proc.stderr.read()
+        parsed_result = contrib_modules[self.contrib_type].ContribModule.parse_return_code(
+            self._manager_proc,
+            self.manager_binary,
+            case.points,
+            self._manager_time_limit,
+            self._manager_memory_limit,
+            feedback=utf8text(result.proc_output),
+            extended_feedback=utf8text(stderr),
+            name='manager',
+            stderr=stderr,
+        )
+
+        return (not result.result_flag) and parsed_result
 
     def _launch_process(self, case):
         # Indices for the objects related to each user process
         indices = range(self.num_processes)
 
         # Create FIFOs for communication between manager and user processes
-        fifo_dir = [tempfile.mkdtemp() for i in indices]
-        fifo_user_to_manager = [
-            os.path.join(fifo_dir[i], "u%d_to_m" % i) for i in indices]
-        fifo_manager_to_user = [
-            os.path.join(fifo_dir[i], "m_to_u%d" % i) for i in indices]
+        self._fifo_dir = [tempfile.mkdtemp() for i in indices]
+        self._fifo_user_to_manager = [os.path.join(self._fifo_dir[i], "u%d_to_m" % i) for i in indices]
+        self._fifo_manager_to_user = [os.path.join(self._fifo_dir[i], "m_to_u%d" % i) for i in indices]
         for i in indices:
-            os.mkfifo(fifo_user_to_manager[i])
-            os.mkfifo(fifo_manager_to_user[i])
-            os.chmod(fifo_dir[i], 0o755)
-            os.chmod(fifo_user_to_manager[i], 0o666)
-            os.chmod(fifo_manager_to_user[i], 0o666)
+            os.mkfifo(self._fifo_user_to_manager[i])
+            os.mkfifo(self._fifo_manager_to_user[i])
+            os.chmod(self._fifo_dir[i], 0o755)
+            os.chmod(self._fifo_user_to_manager[i], 0o666)
+            os.chmod(self._fifo_manager_to_user[i], 0o666)
 
         # Create user processes
         self._user_procs = [None for i in indices]
+        self._user_results = [Result(case) for i in indices]
         for i in indices:
-            stdin_fd = os.open(fifo_manager_to_user[i],
-                               os.O_RDONLY)
-            stdout_fd = os.open(fifo_user_to_manager[i],
-                                os.O_WRONLY | os.O_TRUNC | os.O_CREAT,
-                                stat.S_IRUSR | stat.S_IRGRP |
-                                stat.S_IROTH | stat.S_IWUSR)
+            # Setup std*** redirection
+            stdin_fd = os.open(self._fifo_manager_to_user[i], stdin_fd_flags)
+            stdout_fd = os.open(self._fifo_user_to_manager[i], stdout_fd_flags, stdout_fd_mode)
+
             self._user_procs[i] = self.binary.launch(
                 time=self.problem.time_limit,
                 memory=self.problem.memory_limit,
@@ -65,21 +122,23 @@ class CommunicationGrader(StandardGrader):
                 stderr=subprocess.PIPE,
                 wall_time=case.config.wall_time_factor * self.problem.time_limit,
             )
+
+            # Close file descriptors passed to the process
             os.close(stdin_fd)
             os.close(stdout_fd)
 
         # Create manager processes
         manager_args = []
         for i in indices:
-            manager_args += [shlex.quote(fifo_user_to_manager[i]), shlex.quote(fifo_manager_to_user[i])]
+            manager_args += [shlex.quote(self._fifo_user_to_manager[i]), shlex.quote(self._fifo_manager_to_user[i])]
 
-        manager_time_limit = self.num_processes * (self.problem.time_limit + 1.0)
-        manager_memory_limit = self.handler_data.manager.memory_limit or env['generator_memory_limit']
+        self._manager_time_limit = self.num_processes * (self.problem.time_limit + 1.0)
+        self._manager_memory_limit = self.handler_data.manager.memory_limit or env['generator_memory_limit']
 
         self._manager_proc = self.manager_binary.launch(
             *manager_args,
-            time=manager_time_limit,
-            memory=manager_memory_limit,
+            time=self._manager_time_limit,
+            memory=self._manager_memory_limit,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -92,16 +151,21 @@ class CommunicationGrader(StandardGrader):
         for _user_proc in self._user_procs:
             _user_proc.wait()
 
-        # TODO: cleanup fifo_dir
+        # Cleanup FIFOs
+        for _dir in self._fifo_dir:
+            shutil.rmtree(_dir)
 
         return error
 
     def _generate_binary(self):
+        if not 'signature' in self.problem.config.communication:
+            return super()._generate_binary()
+
         siggraders = ('C', 'C11', 'CPP03', 'CPP11', 'CPP14', 'CPP17', 'CPP20', 'CLANG', 'CLANGX')
 
         if self.language in siggraders:
             aux_sources = {}
-            signature_data = self.problem.config.communication.signature  # FIXME: check if key exists
+            signature_data = self.problem.config.communication.signature
 
             entry_point = self.problem.problem_data[signature_data['entry']]
             header = self.problem.problem_data[signature_data['header']]
@@ -121,7 +185,6 @@ class CommunicationGrader(StandardGrader):
             raise InternalError('no valid runtime for signature grading %s found' % self.language)
 
     def _generate_manager_binary(self):
-        # FIXME: check if manager key exists
         files = self.handler_data.manager.files
         if isinstance(files, str):
             filenames = [files]
