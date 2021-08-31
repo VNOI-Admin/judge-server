@@ -15,7 +15,7 @@ from dmoj.result import Result
 from dmoj.utils.helper_files import compile_with_auxiliary_files
 from dmoj.utils.unicode import utf8bytes, utf8text
 
-stdin_fd_flags = os.O_RDONLY
+stdin_fd_flags = os.O_RDONLY | os.O_NONBLOCK
 stdout_fd_flags = os.O_WRONLY | os.O_TRUNC | os.O_CREAT
 stdout_fd_mode = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IWUSR
 
@@ -55,8 +55,11 @@ class CommunicationGrader(StandardGrader):
         if self.contrib_type not in contrib_modules:
             raise InternalError('%s is not a valid contrib module' % self.contrib_type)
 
-        self.manager_binary = self._generate_manager_binary()
         self.num_processes = self.handler_data.get('num_processes', 1)
+        if self.num_processes < 1:
+            raise InternalError('num_processes must be positive')
+
+        self.manager_binary = self._generate_manager_binary()
 
     def populate_result(self, error, result, process):
         final_user_result = None
@@ -105,6 +108,25 @@ class CommunicationGrader(StandardGrader):
             os.chmod(self._fifo_user_to_manager[i], 0o666)
             os.chmod(self._fifo_manager_to_user[i], 0o666)
 
+        # Create manager processes
+        manager_args = []
+        for i in indices:
+            manager_args += [shlex.quote(self._fifo_user_to_manager[i]), shlex.quote(self._fifo_manager_to_user[i])]
+
+        self._manager_time_limit = self.num_processes * (self.problem.time_limit + 1.0)
+        self._manager_memory_limit = self.handler_data.manager.memory_limit or env['generator_memory_limit']
+
+        print(manager_args)
+
+        self._manager_proc = self.manager_binary.launch(
+            *manager_args,
+            time=self._manager_time_limit,
+            memory=self._manager_memory_limit,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
         # Create user processes
         self._user_procs = [None for i in indices]
         self._user_results = [Result(case) for i in indices]
@@ -126,23 +148,6 @@ class CommunicationGrader(StandardGrader):
             # Close file descriptors passed to the process
             os.close(stdin_fd)
             os.close(stdout_fd)
-
-        # Create manager processes
-        manager_args = []
-        for i in indices:
-            manager_args += [shlex.quote(self._fifo_user_to_manager[i]), shlex.quote(self._fifo_manager_to_user[i])]
-
-        self._manager_time_limit = self.num_processes * (self.problem.time_limit + 1.0)
-        self._manager_memory_limit = self.handler_data.manager.memory_limit or env['generator_memory_limit']
-
-        self._manager_proc = self.manager_binary.launch(
-            *manager_args,
-            time=self._manager_time_limit,
-            memory=self._manager_memory_limit,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
 
     def _interact_with_process(self, case, result, input):
         result.proc_output, error = self._manager_proc.communicate(input)
