@@ -54,4 +54,16 @@ class CommunicationGrader(StandardGrader):
             raise InternalError('no valid runtime for signature grading %s found' % self.language)
 
     def _generate_manager_binary(self):
-        raise NotImplementedError()
+        files = self.handler_data.manager.files
+        if isinstance(files, str):
+            filenames = [files]
+        elif isinstance(files.unwrap(), list):
+            filenames = list(files.unwrap())
+        filenames = [os.path.join(get_problem_root(self.problem.id), f) for f in filenames]
+        flags = self.handler_data.manager.get('flags', [])
+        unbuffered = self.handler_data.manager.get('unbuffered', True)
+        lang = self.handler_data.manager.lang
+        compiler_time_limit = self.handler_data.manager.compiler_time_limit
+        return compile_with_auxiliary_files(
+            filenames, flags, lang, compiler_time_limit, unbuffered,
+        )
