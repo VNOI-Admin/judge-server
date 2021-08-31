@@ -35,17 +35,18 @@ class CommunicationGrader(StandardGrader):
 
         if self.language in siggraders:
             aux_sources = {}
+            signature_data = self.problem.config.communication.signature  # FIXME: check if key exists
 
-            entry_point = self.problem.problem_data[self.handler_data['entry']]
-            header = self.problem.problem_data[self.handler_data['header']]
+            entry_point = self.problem.problem_data[signature_data['entry']]
+            header = self.problem.problem_data[signature_data['header']]
 
-            submission_prefix = '#include "%s"\n' % self.handler_data['header']
-            if not self.handler_data.get('allow_main', False):
+            submission_prefix = '#include "%s"\n' % signature_data['header']
+            if not signature_data.get('allow_main', False):
                 submission_prefix += '#define main main_%s\n' % uuid.uuid4().hex
 
             aux_sources[self.problem.id + '_submission'] = utf8bytes(submission_prefix) + self.source
 
-            aux_sources[self.handler_data['header']] = header
+            aux_sources[signature_data['header']] = header
             entry = entry_point
             return executors[self.language].Executor(
                 self.problem.id, entry, aux_sources=aux_sources, defines=['-DSIGNATURE_GRADER'],
