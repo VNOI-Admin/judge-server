@@ -62,6 +62,8 @@ class CommunicationGrader(StandardGrader):
         self.manager_binary = self._generate_manager_binary()
 
     def populate_result(self, error, result, process):
+        self.manager_binary.populate_result(self._manager_stderr, result, self._manager_proc)
+
         final_user_result = None
         for i in range(self.num_processes):
             _user_proc, _user_result = self._user_procs[i], self._user_results[i]
@@ -72,13 +74,15 @@ class CommunicationGrader(StandardGrader):
         # sandbox can only check its own; if the sum is greater than the time
         # limit we adjust the result.
         if final_user_result.execution_time > self.problem.time_limit:
-            result.result_flag |= Result.TLE
+            final_user_result.result_flag |= Result.TLE
 
-        merge_results(result, final_user_result)
-
+        result = merge_results(result, final_user_result)
 
     def check_result(self, case, result):
-        parsed_result = contrib_modules[self.contrib_type].ContribModule.parse_return_code(
+        if result.result_flag:
+            return False
+
+        return contrib_modules[self.contrib_type].ContribModule.parse_return_code(
             self._manager_proc,
             self.manager_binary,
             case.points,
@@ -90,20 +94,18 @@ class CommunicationGrader(StandardGrader):
             stderr=self._manager_stderr,
         )
 
-        return (not result.result_flag) and parsed_result
-
     def _launch_process(self, case):
         # Indices for the objects related to each user process
         indices = range(self.num_processes)
 
         # Create FIFOs for communication between manager and user processes
-        self._fifo_dir = [tempfile.mkdtemp() for i in indices]
+        self._fifo_dir = [tempfile.mkdtemp(prefix='fifo_') for i in indices]
         self._fifo_user_to_manager = [os.path.join(self._fifo_dir[i], "u%d_to_m" % i) for i in indices]
         self._fifo_manager_to_user = [os.path.join(self._fifo_dir[i], "m_to_u%d" % i) for i in indices]
         for i in indices:
             os.mkfifo(self._fifo_user_to_manager[i])
             os.mkfifo(self._fifo_manager_to_user[i])
-            os.chmod(self._fifo_dir[i], 0o755)
+            os.chmod(self._fifo_dir[i], 0o700)
             os.chmod(self._fifo_user_to_manager[i], 0o666)
             os.chmod(self._fifo_manager_to_user[i], 0o666)
 
