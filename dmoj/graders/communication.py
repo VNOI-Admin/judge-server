@@ -60,21 +60,16 @@ class CommunicationGrader(StandardGrader):
         self.manager_binary = self._generate_manager_binary()
 
     def populate_result(self, error, result, process):
-        self.manager_binary.populate_result(self._manager_stderr, result, self._manager_proc)
-
-        final_user_result = None
         for i in range(self.num_processes):
             _user_proc, _user_result = self._user_procs[i], self._user_results[i]
             self.binary.populate_result(_user_proc.stderr.read(), _user_result, _user_proc)
-            final_user_result = merge_results(final_user_result, _user_result)
+            result = merge_results(result, _user_result)
 
         # The actual running time is the sum of every user process, but each
         # sandbox can only check its own; if the sum is greater than the time
         # limit we adjust the result.
-        if final_user_result.execution_time > self.problem.time_limit:
-            final_user_result.result_flag |= Result.TLE
-
-        result = merge_results(result, final_user_result)
+        if result.execution_time > self.problem.time_limit:
+            result.result_flag |= Result.TLE
 
     def check_result(self, case, result):
         if result.result_flag:
