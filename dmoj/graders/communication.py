@@ -162,7 +162,7 @@ class CommunicationGrader(StandardGrader):
         return self._manager_stderr
 
     def _generate_binary(self):
-        if not 'signature' in self.problem.config.communication:
+        if 'signature' not in self.problem.config.communication:
             return super()._generate_binary()
 
         siggraders = ('C', 'C11', 'CPP03', 'CPP11', 'CPP14', 'CPP17', 'CPP20', 'CLANG', 'CLANGX')
