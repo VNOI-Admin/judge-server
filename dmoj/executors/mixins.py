@@ -20,10 +20,10 @@ BASE_FILESYSTEM = [
     '/etc$',
     '/etc/(?:localtime|timezone)$',
     '/usr$',
-    '/tmp$',
+    '/tmp/',
     '/$',
 ]
-BASE_WRITE_FILESYSTEM = ['/dev/stdout$', '/dev/stderr$', '/dev/null$']
+BASE_WRITE_FILESYSTEM = ['/dev/stdout$', '/dev/stderr$', '/dev/null$', '/tmp/']
 
 if 'freebsd' in sys.platform:
     BASE_FILESYSTEM += [r'/etc/s?pwd\.db$', '/dev/hv_tsc$']

@@ -15,7 +15,7 @@ from dmoj.result import Result
 from dmoj.utils.helper_files import compile_with_auxiliary_files
 from dmoj.utils.unicode import utf8bytes, utf8text
 
-stdin_fd_flags = os.O_RDONLY | os.O_NONBLOCK
+stdin_fd_flags = os.O_RDONLY
 stdout_fd_flags = os.O_WRONLY | os.O_TRUNC | os.O_CREAT
 stdout_fd_mode = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IWUSR
 
@@ -66,7 +66,7 @@ class CommunicationGrader(StandardGrader):
         for i in range(self.num_processes):
             _user_proc, _user_result = self._user_procs[i], self._user_results[i]
             self.binary.populate_result(_user_proc.stderr.read(), _user_result, _user_proc)
-            merge_results(final_user_result, _user_result)
+            final_user_result = merge_results(final_user_result, _user_result)
 
         # The actual running time is the sum of every user process, but each
         # sandbox can only check its own; if the sum is greater than the time
@@ -78,7 +78,6 @@ class CommunicationGrader(StandardGrader):
 
 
     def check_result(self, case, result):
-        stderr = self._manager_proc.stderr.read()
         parsed_result = contrib_modules[self.contrib_type].ContribModule.parse_return_code(
             self._manager_proc,
             self.manager_binary,
@@ -86,9 +85,9 @@ class CommunicationGrader(StandardGrader):
             self._manager_time_limit,
             self._manager_memory_limit,
             feedback=utf8text(result.proc_output),
-            extended_feedback=utf8text(stderr),
+            extended_feedback=utf8text(self._manager_stderr),
             name='manager',
-            stderr=stderr,
+            stderr=self._manager_stderr,
         )
 
         return (not result.result_flag) and parsed_result
@@ -115,8 +114,6 @@ class CommunicationGrader(StandardGrader):
 
         self._manager_time_limit = self.num_processes * (self.problem.time_limit + 1.0)
         self._manager_memory_limit = self.handler_data.manager.memory_limit or env['generator_memory_limit']
-
-        print(manager_args)
 
         self._manager_proc = self.manager_binary.launch(
             *manager_args,
@@ -150,7 +147,7 @@ class CommunicationGrader(StandardGrader):
             os.close(stdout_fd)
 
     def _interact_with_process(self, case, result, input):
-        result.proc_output, error = self._manager_proc.communicate(input)
+        result.proc_output, self._manager_stderr = self._manager_proc.communicate(input)
 
         self._manager_proc.wait()
         for _user_proc in self._user_procs:
@@ -160,7 +157,7 @@ class CommunicationGrader(StandardGrader):
         for _dir in self._fifo_dir:
             shutil.rmtree(_dir)
 
-        return error
+        return self._manager_stderr
 
     def _generate_binary(self):
         if not 'signature' in self.problem.config.communication:
