@@ -20,7 +20,7 @@ stdout_fd_flags = os.O_WRONLY | os.O_TRUNC | os.O_CREAT
 stdout_fd_mode = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IWUSR
 
 
-def merge_results(first_result, second_result, concurrent=True):
+def merge_results(first_result, second_result):
     """
     Merge second_result into first_result and return first_result
     """
@@ -30,14 +30,8 @@ def merge_results(first_result, second_result, concurrent=True):
         return second_result
 
     first_result.execution_time += second_result.execution_time
-
-    if concurrent:
-        first_result.wall_clock_time = max(first_result.wall_clock_time, second_result.wall_clock_time)
-        first_result.max_memory += second_result.max_memory
-    else:
-        first_result.wall_clock_time += second_result.wall_clock_time
-        first_result.max_memory = max(first_result.max_memory, second_result.max_memory)
-
+    first_result.wall_clock_time = max(first_result.wall_clock_time, second_result.wall_clock_time)
+    first_result.max_memory += second_result.max_memory
     first_result.result_flag |= second_result.result_flag
 
     return first_result

@@ -1,0 +1,6 @@
+communication:
+  type: not-a-contrib-module
+  manager:
+    files: manager.cpp
+test_cases:
+  - { points: 100 }
