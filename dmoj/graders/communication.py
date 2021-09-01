@@ -49,9 +49,11 @@ class CommunicationGrader(StandardGrader):
         if self.contrib_type not in contrib_modules:
             raise InternalError('%s is not a valid contrib module' % self.contrib_type)
 
-        self.num_processes = self.handler_data.get('num_processes', 1)
-        if self.num_processes < 1:
+        # We can't use self.handler_data.get('num_processes', 1) here since 0 is a falsy value
+        if 'num_processes' in self.handler_data and self.handler_data.num_processes < 1:
             raise InternalError('num_processes must be positive')
+
+        self.num_processes = self.handler_data.get('num_processes', 1)
 
         self.manager_binary = self._generate_manager_binary()
 
