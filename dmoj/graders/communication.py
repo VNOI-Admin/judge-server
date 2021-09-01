@@ -15,14 +15,16 @@ from dmoj.result import Result
 from dmoj.utils.helper_files import compile_with_auxiliary_files
 from dmoj.utils.unicode import utf8bytes, utf8text
 
-stdin_fd_flags = os.O_RDONLY
-stdout_fd_flags = os.O_WRONLY | os.O_TRUNC | os.O_CREAT
-stdout_fd_mode = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IWUSR
+STDIN_FD_FLAGS = os.O_RDONLY
+STDOUT_FD_FLAGS = os.O_WRONLY | os.O_TRUNC | os.O_CREAT
+STDOUT_FD_MODE = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH | stat.S_IWUSR
 
 
 def merge_results(first_result, second_result):
     """
     Merge second_result into first_result and return first_result
+
+    Based on https://github.com/cms-dev/cms/blob/v1.4/cms/grading/steps/stats.py#L70-L125
     """
     if second_result is None:
         raise InternalError("The second result cannot be None")
@@ -110,6 +112,7 @@ class CommunicationGrader(StandardGrader):
         for i in indices:
             manager_args += [shlex.quote(self._fifo_user_to_manager[i]), shlex.quote(self._fifo_manager_to_user[i])]
 
+        # https://github.com/cms-dev/cms/blob/v1.4/cms/grading/tasktypes/Communication.py#L319-L320
         self._manager_time_limit = self.num_processes * (self.problem.time_limit + 1.0)
         self._manager_memory_limit = self.handler_data.manager.memory_limit or env['generator_memory_limit']
 
@@ -127,8 +130,8 @@ class CommunicationGrader(StandardGrader):
         self._user_results = [Result(case) for i in indices]
         for i in indices:
             # Setup std*** redirection
-            stdin_fd = os.open(self._fifo_manager_to_user[i], stdin_fd_flags)
-            stdout_fd = os.open(self._fifo_user_to_manager[i], stdout_fd_flags, stdout_fd_mode)
+            stdin_fd = os.open(self._fifo_manager_to_user[i], STDIN_FD_FLAGS)
+            stdout_fd = os.open(self._fifo_user_to_manager[i], STDOUT_FD_FLAGS, STDOUT_FD_MODE)
 
             self._user_procs[i] = self.binary.launch(
                 time=self.problem.time_limit,

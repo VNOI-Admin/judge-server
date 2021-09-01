@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 
   if (plaintext == decrypted) {
     cout << "1.0\n";
-    cerr << "translate:correct\n";
+    cerr << "translate:success\n";
   } else {
     cout << "0.0\n";
     cerr << "translate:wrong\n";
