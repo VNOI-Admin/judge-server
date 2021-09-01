@@ -1,0 +1,7 @@
+communication:
+  type: cms
+  manager:
+    files: manager.cpp
+  num_processes: 0
+test_cases:
+  - { points: 100 }

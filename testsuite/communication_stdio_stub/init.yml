@@ -1,0 +1,10 @@
+communication:
+  type: cms
+  manager:
+    files: manager.cpp
+  signature:
+    entry: stub.cpp
+    header: header.h
+  num_processes: 2
+test_cases:
+  - in: 1.in

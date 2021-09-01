@@ -1,0 +1,5 @@
+language: CPP17
+time: 2
+memory: 65536
+source: echo.cpp
+cases: [AC, WA, WA, WA, AC, WA, WA]

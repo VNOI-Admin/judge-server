@@ -1,0 +1,4 @@
+communication:
+  type: cms
+test_cases:
+  - { points: 100 }

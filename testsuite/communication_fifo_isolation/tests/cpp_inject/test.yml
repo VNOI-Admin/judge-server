@@ -1,0 +1,8 @@
+language: CPP17
+time: 2
+memory: 65536
+source: inject.cpp
+# The sandbox must refuse the open, so nothing reaches process 0 and the
+# manager accepts. If the FIFOs are ever writable by a user process again, the
+# injected bytes arrive and this becomes WA.
+expect: AC
