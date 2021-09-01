@@ -1,0 +1,8 @@
+communication:
+  type: cms
+  manager:
+    files: manager.cpp
+  num_processes: 8
+test_cases:
+  - in: 01.in
+  - in: 02.in

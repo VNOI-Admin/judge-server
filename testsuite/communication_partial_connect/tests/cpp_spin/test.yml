@@ -1,0 +1,7 @@
+language: CPP17
+time: 2
+memory: 65536
+source: spin.cpp
+# Case 7 is the process the manager engaged and then left at EOF: it is the
+# submission at work, so spinning there is its own time limit to run out.
+cases: [AC, WA, WA, WA, AC, WA, TLE]

@@ -1,0 +1,6 @@
+language: CPP17
+time: 1
+memory: 65536
+source: ie.cpp
+expect: IE
+feedback: 'missing manager config'
