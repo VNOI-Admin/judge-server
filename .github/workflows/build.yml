@@ -84,6 +84,9 @@ jobs:
           unzip scratch-run.zip
           mv scratch-run /usr/bin/scratch-run
 
+          curl -L https://raw.githubusercontent.com/MikeMirzayanov/testlib/master/testlib.h -o /usr/include/testlib.h
+          curl -L https://raw.githubusercontent.com/skyvn97/testlib/customized-testlib/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h
+
           runuser -u judge -w PATH /code/run-su
           EOF
 

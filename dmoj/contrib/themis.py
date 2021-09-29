@@ -23,7 +23,8 @@ class ContribModule(DefaultContribModule):
                 False, 0, feedback=f'Checker exitcode {proc.returncode}', extended_feedback=extended_feedback
             )
         else:
-            points = float(feedback.split('\n')[1]) * point_value
+            # Don't need to strip() here because extended_feedback has already stripped.
+            points = float(extended_feedback.split('\n')[-1]) * point_value
             # TODO (thuc): We should check 0 <= points <= point_value, but I don't want to raise an internal error
             # So I skip the check.
 

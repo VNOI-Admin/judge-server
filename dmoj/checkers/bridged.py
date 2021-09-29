@@ -41,6 +41,11 @@ def check(
     output_name=None,
     **kwargs,
 ) -> CheckerResult:
+
+    if type == 'themis':
+        # Actually it should be `defines` instead of `flags`
+        # but using `defines` requires more changes
+        flags.append('-DTHEMIS')
     executor = get_executor(problem_id, files, flags, lang, compiler_time_limit)
 
     if type not in contrib_modules:
@@ -83,7 +88,7 @@ def check(
             )
 
             proc_output, error = process.communicate(input='\n'.join([test_data_folder, user_output_folder]).encode())
-            proc_output = utf8text(proc_output)
+            proc_output = utf8text(proc_output).strip()
 
             return contrib_modules[type].ContribModule.parse_return_code(
                 process,
@@ -91,8 +96,8 @@ def check(
                 point_value,
                 time_limit,
                 memory_limit,
-                feedback=proc_output.strip() if feedback else '',
-                extended_feedback=utf8text(error).strip() if feedback else '',
+                feedback='',  # everything will be show in extended_feedback.
+                extended_feedback=proc_output if feedback else '',
                 name='checker',
                 stderr=error,
             )
