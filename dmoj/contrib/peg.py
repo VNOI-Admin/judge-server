@@ -17,6 +17,7 @@ class ContribModule(BaseContribModule):
         return '{answer_file} {output_file} {input_file}'
 
     @classmethod
+    @BaseContribModule.catch_internal_error
     def parse_return_code(
         cls,
         proc: 'TracedPopen',
