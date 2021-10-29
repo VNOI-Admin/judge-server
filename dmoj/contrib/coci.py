@@ -14,6 +14,7 @@ class ContribModule(TestlibContribModule):
         return '{input_file} {answer_file}'
 
     @classmethod
+    @TestlibContribModule.catch_internal_error
     def parse_return_code(
         cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr
     ):

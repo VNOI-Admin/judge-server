@@ -11,6 +11,7 @@ class ContribModule(DefaultContribModule):
         return '{answer_file} {output_file} {input_file}'
 
     @classmethod
+    @DefaultContribModule.catch_internal_error
     def parse_return_code(
         cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr
     ):

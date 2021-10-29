@@ -1,5 +1,4 @@
 from dmoj.contrib.default import ContribModule as DefaultContribModule
-from dmoj.error import InternalError
 from dmoj.result import CheckerResult
 from dmoj.utils.helper_files import parse_helper_file_error
 
@@ -10,18 +9,12 @@ class ContribModule(DefaultContribModule):
     name = 'themis'
 
     @classmethod
+    @DefaultContribModule.catch_internal_error
     def parse_return_code(
         cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr
     ):
         if proc.returncode != cls.AC:
-            try:
-                parse_helper_file_error(proc, executor, name, stderr, time_limit, memory_limit)
-            except InternalError as e:
-                return CheckerResult(False, 0, feedback=f'Checker exitcode {proc.returncode}', extended_feedback=str(e))
-
-            return CheckerResult(
-                False, 0, feedback=f'Checker exitcode {proc.returncode}', extended_feedback=extended_feedback
-            )
+            parse_helper_file_error(proc, executor, name, stderr, time_limit, memory_limit)
         else:
             # Don't need to strip() here because extended_feedback has already stripped.
             points = float(extended_feedback.split('\n')[-1]) * point_value

@@ -1,3 +1,6 @@
+from typing import Any
+
+from dmoj.error import InternalError
 from dmoj.result import CheckerResult
 from dmoj.utils.helper_files import parse_helper_file_error
 
@@ -7,6 +10,21 @@ class ContribModule:
     WA = 1
 
     name = 'default'
+
+    def catch_internal_error(f: Any) -> Any:
+        def wrapper(*args, **kwargs) -> CheckerResult:
+            try:
+                return f(*args, **kwargs)
+            except InternalError as e:
+                proc = args[1]
+                return CheckerResult(
+                    False,
+                    0,
+                    feedback=f'Checker exitcode {proc.returncode}',
+                    extended_feedback=str(e),
+                )
+
+        return wrapper
 
     @classmethod
     def get_checker_args_format_string(cls):
