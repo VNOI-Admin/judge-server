@@ -30,6 +30,7 @@ class ContribModule(DefaultContribModule):
         return '--group st{batch_no}'
 
     @classmethod
+    @DefaultContribModule.catch_internal_error
     def parse_return_code(
         cls,
         proc: 'TracedPopen',
