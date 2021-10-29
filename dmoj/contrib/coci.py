@@ -24,6 +24,7 @@ class ContribModule(TestlibContribModule):
         raise NotImplementedError
 
     @classmethod
+    @TestlibContribModule.catch_internal_error
     def parse_return_code(
         cls,
         proc: 'TracedPopen',

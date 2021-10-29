@@ -16,6 +16,7 @@ class ContribModule(BaseContribModule):
     name = 'themis'
 
     @classmethod
+    @BaseContribModule.catch_internal_error
     def parse_return_code(
         cls,
         proc: 'TracedPopen',
@@ -30,17 +31,15 @@ class ContribModule(BaseContribModule):
         **kwargs,
     ):
         if proc.returncode != cls.AC:
-            try:
-                parse_helper_file_error(proc, executor, name, stderr, time_limit, memory_limit)
-            except InternalError as e:
-                return CheckerResult(False, 0, feedback=f'Checker exitcode {proc.returncode}', extended_feedback=str(e))
-
-            return CheckerResult(
-                False, 0, feedback=f'Checker exitcode {proc.returncode}', extended_feedback=extended_feedback
-            )
+            parse_helper_file_error(proc, executor, name, stderr, time_limit, memory_limit)
         else:
-            # Don't need to strip() here because extended_feedback has already stripped.
-            points = float(extended_feedback.split('\n')[-1]) * point_value
+            try:
+                # Don't need to strip() here because extended_feedback has already stripped.
+                points = float(extended_feedback.split('\n')[-1]) * point_value
+            except ValueError as e:
+                # In case the last line is not a float number, raise Internal Error
+                # so that the wrapper catch_internal_error will catch the exception
+                raise InternalError(e)
             # TODO (thuc): We should check 0 <= points <= point_value, but I don't want to raise an internal error
             # So I skip the check.
 
