@@ -94,6 +94,8 @@ class IsolateTracer(dict):
                 sys_getpgrp: ALLOW,
                 sys_restart_syscall: ALLOW,
                 sys_select: ALLOW,
+                sys_pselect6: ALLOW,
+                sys_pselect6_time64: ALLOW,
                 sys_newselect: ALLOW,
                 sys_modify_ldt: ALLOW,
                 sys_epoll_create: ALLOW,
