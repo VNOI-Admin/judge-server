@@ -30,12 +30,13 @@ except AttributeError:
 
 
 class IsolateTracer(dict):
-    def __init__(self, read_fs, write_fs=None, writable=(1, 2)):
+    def __init__(self, read_fs, write_fs=None, writable=(1, 2), path_case_fixes=[]):
         super().__init__()
         self.read_fs_jail = self._compile_fs_jail(read_fs)
         self.write_fs_jail = self._compile_fs_jail(write_fs)
 
         self._writable = list(writable)
+        self._path_case_fixes = path_case_fixes
 
         if sys.platform.startswith('freebsd'):
             self._getcwd_pid = lambda pid: utf8text(bsd_get_proc_cwd(pid))
@@ -219,6 +220,15 @@ class IsolateTracer(dict):
             return None, ACCESS_ENOENT(debugger)
         return file, None
 
+    @staticmethod
+    def write_path(debugger: Debugger, ptr: int, file: str):
+        assert os.path.abspath(file) == file, 'Must pass an absolute path'
+        try:
+            debugger.writestr(ptr, file)
+        except OSError:
+            return ACCESS_EFAULT(debugger)
+        return None
+
     def check_file_access(self, syscall, argument, is_write=None, is_open=False) -> HandlerCallback:
         assert is_write is None or not is_open
 
@@ -229,6 +239,9 @@ class IsolateTracer(dict):
 
             file, error = self._file_access_check(file, debugger, is_open, is_write=is_write)
             if not error:
+                error = self._fix_path_case(debugger, argument, file)
+                if error is not None:
+                    return error
                 return True
 
             log.debug('Denied access via syscall %s (error: %s): %s', syscall, error.error_name, file)
@@ -246,6 +259,9 @@ class IsolateTracer(dict):
                 file, debugger, is_open, is_write=is_write, dirfd=debugger.arg0, flag_reg=2
             )
             if not error:
+                error = self._fix_path_case(debugger, argument, file)
+                if error is not None:
+                    return error
                 return True
 
             log.debug('Denied access via syscall %s (error: %s): %s', syscall, error.error_name, file)
@@ -319,6 +335,14 @@ class IsolateTracer(dict):
                 return real, ACCESS_EACCES
 
         return normalized, None
+
+    def _fix_path_case(self, debugger, argument, file):
+        # Windows is case-insensitive, while Unix is case-sensitive.
+        # This makes some checkers that were originally written for Windows fail to work on Unix.
+        # If required, we fix the path here, so the checker would work normally.
+        for dest in self._path_case_fixes:
+            if dest.lower() == file.lower():
+                return self.write_path(debugger, getattr(debugger, 'uarg%d' % argument), dest)
 
     def get_full_path(self, debugger: Debugger, file: str, dirfd: int = AT_FDCWD) -> str:
         dirfd = (dirfd & 0x7FFFFFFF) - (dirfd & 0x80000000)

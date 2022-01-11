@@ -85,6 +85,7 @@ def check(
                 stderr=subprocess.PIPE,
                 memory=memory_limit,
                 time=time_limit,
+                path_case_fixes=[input_file_path, answer_file_path, user_output_file_path],
             )
 
             proc_output, error = process.communicate(input='\n'.join([test_data_folder, user_output_folder]).encode())

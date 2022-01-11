@@ -213,8 +213,12 @@ class BaseExecutor(metaclass=ExecutorMeta):
             sec[getattr(syscalls, f'sys_{name}')] = handler
         return sec
 
-    def get_security(self, launch_kwargs=None) -> IsolateTracer:
-        sec = IsolateTracer(self.get_fs(), write_fs=self.get_write_fs())
+    def get_security(self, launch_kwargs={}) -> IsolateTracer:
+        sec = IsolateTracer(
+            read_fs=self.get_fs(),
+            write_fs=self.get_write_fs(),
+            path_case_fixes=launch_kwargs.get('path_case_fixes', []),
+        )
         return self._add_syscalls(sec)
 
     def get_fs(self) -> List[FilesystemAccessRule]:
