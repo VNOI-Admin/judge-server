@@ -42,10 +42,18 @@ DirFDGetter = Callable[[Debugger], int]
 
 
 class IsolateTracer(dict):
-    def __init__(self, *, read_fs: List[FilesystemAccessRule], write_fs: List[FilesystemAccessRule]):
+    def __init__(
+        self,
+        *,
+        read_fs: List[FilesystemAccessRule],
+        write_fs: List[FilesystemAccessRule],
+        path_case_fixes=None,
+    ):
         super().__init__()
         self.read_fs_jail = self._compile_fs_jail(read_fs)
         self.write_fs_jail = self._compile_fs_jail(write_fs)
+
+        self._path_case_fixes = path_case_fixes or []
 
         if sys.platform.startswith('freebsd'):
             self._getcwd_pid = lambda pid: utf8text(bsd_get_proc_cwd(pid))
@@ -229,6 +237,13 @@ class IsolateTracer(dict):
     def _dirfd_getter_cwd(self, debugger: Debugger) -> int:
         return AT_FDCWD
 
+    @staticmethod
+    def write_path(debugger: Debugger, ptr: int, file: str):
+        try:
+            debugger.writestr(ptr, file)
+        except OSError:
+            raise DeniedSyscall(ACCESS_EFAULT, 'Cannot write path')
+
     def _fs_jail_getter_from_open_flags_reg(self, reg: int) -> FSJailGetter:
         def getter(debugger: Debugger) -> FilesystemPolicy:
             open_flags = getattr(debugger, 'uarg%d' % reg)
@@ -293,6 +308,7 @@ class IsolateTracer(dict):
 
             dirfd = getattr(debugger, 'uarg%d' % dir_reg)
             full_path = self.get_full_path_unnormalized(debugger, rel_file, dirfd=dirfd)
+            full_path = self._fix_path_case(full_path, rel_file, debugger, getattr(debugger, 'uarg%d' % file_reg))
             self._access_check(debugger, full_path, self.read_fs_jail)
 
         return check
@@ -302,6 +318,7 @@ class IsolateTracer(dict):
             rel_file = self.get_rel_file(debugger, reg=file_reg)
             dirfd = dirfd_getter(debugger)
             full_path = self.get_full_path_unnormalized(debugger, rel_file, dirfd=dirfd)
+            full_path = self._fix_path_case(full_path, rel_file, debugger, getattr(debugger, 'uarg%d' % file_reg))
             fs_jail = fs_jail_getter(debugger)
             self._access_check(debugger, full_path, fs_jail)
 
@@ -388,6 +405,37 @@ class IsolateTracer(dict):
 
             if not real.startswith('/memfd:') and not fs_jail.check(real):
                 raise DeniedSyscall(ACCESS_EACCES, f'Denying {file}, real path {real}')
+
+    def _fix_path_case(self, full_path: str, orig_path: str, debugger: Debugger, ptr: int) -> str:
+        # Windows is case-insensitive, while Unix is case-sensitive.
+        # This makes some checkers that were originally written for Windows fail to work on Unix.
+        # If required, we fix the path here, so the checker would work normally.
+        normalized = '/' + os.path.normpath(full_path).lstrip('/')
+        for dest in self._path_case_fixes:
+            if dest.lower() == normalized.lower():
+                # file and dest are absolute paths, but the original path passed to the syscall can be relative.
+                # Due to potential difference in length, it's not possible to overwrite the original path with dest.
+                # We need to read that original path and apply the fix on it.
+                # e.g. orig_path = "PoSt.InP"; file = "/tmp/tmp2b4uv0zl/PoSt.InP"; dest = "/tmp/tmp2b4uv0zl/post.inp"
+                # We need to fix the path to "post.inp".
+
+                # To keep it simple, we'll only fix the base name.
+                orig_basename = os.path.basename(normalized)  # "PoSt.InP" for the example above
+                basename = os.path.basename(dest)  # "post.inp" for the example above
+                assert len(orig_basename) == len(basename)
+
+                if not orig_path.endswith(orig_basename):
+                    # Looks like directory traversal is involved.
+                    # For simplicity and safety, we won't apply any fix here.
+                    return full_path
+
+                fixed_path = orig_path[: -len(orig_basename)] + basename
+                self.write_path(debugger, ptr, fixed_path)
+
+                assert full_path.endswith(orig_path)
+                return full_path[: -len(fixed_path)] + fixed_path
+
+        return full_path
 
     def handle_kill(self, debugger: Debugger) -> None:
         # Allow tgkill to execute as long as the target thread group is the debugged process
