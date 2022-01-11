@@ -128,11 +128,20 @@ typedef long ptrace_read_t;
 #define SYS_process_vm_readv 270
 #endif
 
+#ifndef SYS_process_vm_writev
+#define SYS_process_vm_writev 271
+#endif
+
 // Android's bionic C library doesn't have this system call wrapper.
 // Therefore, we use a weak symbol so it could be used when it doesn't exist.
 ssize_t __attribute__((weak)) process_vm_readv(pid_t pid, const struct iovec *lvec, unsigned long liovcnt,
                                                const struct iovec *rvec, unsigned long riovcnt, unsigned long flags) {
     return syscall(SYS_process_vm_readv, (long) pid, lvec, liovcnt, rvec, riovcnt, flags);
+}
+
+ssize_t __attribute__((weak)) process_vm_writev(pid_t pid, const struct iovec *lvec, unsigned long liovcnt,
+                                                const struct iovec *rvec, unsigned long riovcnt, unsigned long flags) {
+    return syscall(SYS_process_vm_writev, (long) pid, lvec, liovcnt, rvec, riovcnt, flags);
 }
 #endif  // __BIONIC__
 
@@ -332,6 +341,81 @@ bool pt_debugger::readbytes_peekdata(unsigned long addr, char *buffer, size_t si
             return false;
         memcpy(buffer + read, data.byte, size - read < sizeof(ptrace_read_t) ? size - read : sizeof(ptrace_read_t));
         read += sizeof(ptrace_read_t);
+    }
+    return true;
+}
+
+bool pt_debugger::writestr(unsigned long addr, const char *str, size_t size) {
+    if (!addr || !str || !size) {
+        return false;
+    }
+
+#if !PTBOX_FREEBSD
+    struct iovec local, remote;
+    local.iov_base = (void *) str;
+    local.iov_len = size;
+    remote.iov_base = (void *) addr;
+    remote.iov_len = size;
+
+    if (process_vm_writev(tid, &local, 1, &remote, 1, 0) > 0) {
+        return true;
+    }
+
+    perror("process_vm_writev");
+#else
+    struct ptrace_io_desc iod = {
+        .piod_op = PIOD_WRITE_D,
+        .piod_offs = (void *) addr,
+        .piod_addr = (void *) str,
+        .piod_len = size,
+    };
+
+    if (ptrace(PT_IO, tid, (caddr_t) &iod, 0) < 0)
+        perror("ptrace(PT_IO)");
+    else if (size == iod.piod_len)
+        return true;
+    else
+        fprintf(stderr, "%d: failed to write %zu bytes, write %zu instead", tid, size, iod.piod_len);
+#endif
+
+    if (writestr_pokedata(addr, str, size)) {
+        use_pokedata = true;
+        return true;
+    }
+
+    return false;
+}
+
+bool pt_debugger::writestr_pokedata(unsigned long addr, const char *str, size_t size) {
+    union {
+        ptrace_read_t val;
+        char byte[sizeof(ptrace_read_t)];
+    } data;
+    size_t write = 0;
+
+    while (write < size) {
+        if (size - write < sizeof(ptrace_read_t)) {
+            errno = 0;
+#if PTBOX_FREEBSD
+            data.val = ptrace(PT_READ_D, tid, (caddr_t) (addr + write), 0);
+#else
+            data.val = ptrace(PTRACE_PEEKDATA, tid, addr + write, NULL);
+#endif
+            if (data.val == -1 && errno)
+                return false;
+            memcpy(data.byte, str + write, size - write);
+        } else {
+            memcpy(data.byte, str + write, sizeof(ptrace_read_t));
+        }
+
+        errno = 0;
+#if PTBOX_FREEBSD
+        if (ptrace(PT_WRITE_D, tid, (caddr_t) (addr + write), data.val) == -1 && errno)
+#else
+        if (ptrace(PTRACE_POKEDATA, tid, addr + write, data.val) == -1 && errno)
+#endif
+            return false;
+        write += sizeof(ptrace_read_t);
     }
     return true;
 }
