@@ -160,6 +160,7 @@ class pt_debugger {
     char *readstr(unsigned long addr, size_t max_size);
     void freestr(char *);
     bool readbytes(unsigned long addr, char *buffer, size_t size);
+    bool writestr(unsigned long addr, const char *str, size_t size);
 
     pid_t gettid() { return tid; }
     pid_t tid;  // TODO maybe call super instead

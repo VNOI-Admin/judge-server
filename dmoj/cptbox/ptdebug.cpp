@@ -335,3 +335,25 @@ bool pt_debugger::readbytes_peekdata(unsigned long addr, char *buffer, size_t si
     }
     return true;
 }
+
+bool pt_debugger::writestr(unsigned long addr, const char *str, size_t size) {
+    if (!addr || !str || !size) {
+        return false;
+    }
+
+    // TODO: support other platforms than Linux
+
+    struct iovec local, remote;
+    local.iov_base = (void *) str;
+    local.iov_len = size;
+    remote.iov_base = (void *) addr;
+    remote.iov_len = size;
+
+    if (process_vm_writev(tid, &local, 1, &remote, 1, 0) > 0) {
+        return true;
+    }
+
+    perror("process_vm_readv");
+
+    return false;
+}
