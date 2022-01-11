@@ -1,7 +1,7 @@
 # cython: language_level=3
 from cpython.exc cimport PyErr_NoMemory, PyErr_SetFromErrno
 from cpython.buffer cimport PyObject_GetBuffer
-from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
+from cpython.bytes cimport PyBytes_AsString, PyBytes_AsStringAndSize, PyBytes_FromStringAndSize
 from libc.stdio cimport FILE, fopen, fclose, fgets, sprintf
 from libc.stdlib cimport malloc, free, strtoul
 from libc.string cimport strncmp, strlen
@@ -49,6 +49,7 @@ cdef extern from 'ptbox.h' nogil:
         char *readstr(unsigned long, size_t)
         void freestr(char*)
         bool readbytes(unsigned long, char *, size_t)
+        bool writestr(unsigned long, const char *str, size_t)
         pid_t getpid()
         pid_t gettid()
         int getpid_syscall()
@@ -390,6 +391,13 @@ cdef class Debugger:
         if not self.thisptr.readbytes(address, PyBytes_AsString(buffer), size):
             PyErr_SetFromErrno(OSError)
         return buffer
+
+    def writestr(self, unsigned long address, pystr):
+        cdef Py_ssize_t size
+        cdef char* str
+        PyBytes_AsStringAndSize(pystr.encode('utf-8'), &str, &size)
+        if not self.thisptr.writestr(address, str, size + 1):
+            PyErr_SetFromErrno(OSError)
 
     @property
     def tid(self):

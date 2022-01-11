@@ -159,6 +159,7 @@ class pt_debugger {
     char *readstr(unsigned long addr, size_t max_size);
     void freestr(char *);
     bool readbytes(unsigned long addr, char *buffer, size_t size);
+    bool writestr(unsigned long addr, const char *str, size_t size);
 
     pid_t gettid() { return tid; }
     pid_t tid;  // TODO maybe call super instead
@@ -199,8 +200,10 @@ class pt_debugger {
     ptbox_regs regs;
     bool regs_changed;
     bool use_peekdata = false;
+    bool use_pokedata = false;
     char *readstr_peekdata(unsigned long addr, size_t max_size);
     bool readbytes_peekdata(unsigned long addr, char *buffer, size_t size);
+    bool writestr_pokedata(unsigned long addr, const char *str, size_t size);
 #if PTBOX_FREEBSD
     int _bsd_syscall;
     bool _bsd_in_syscall;

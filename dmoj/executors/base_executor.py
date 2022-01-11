@@ -232,10 +232,15 @@ class BaseExecutor(metaclass=ExecutorMeta):
         return sec
 
     def get_security(self, launch_kwargs=None, extra_fs=None) -> IsolateTracer:
+        launch_kwargs = {} if launch_kwargs is None else launch_kwargs
         read_fs = self.get_fs()
         if extra_fs:
             read_fs += extra_fs
-        sec = IsolateTracer(read_fs=read_fs, write_fs=self.get_write_fs())
+        sec = IsolateTracer(
+            read_fs=read_fs,
+            write_fs=self.get_write_fs(),
+            path_case_fixes=launch_kwargs.get('path_case_fixes', []),
+        )
         return self._add_syscalls(sec, self.get_allowed_syscalls())
 
     def get_fs(self) -> List[FilesystemAccessRule]:
