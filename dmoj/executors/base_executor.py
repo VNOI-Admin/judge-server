@@ -9,7 +9,7 @@ import traceback
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from dmoj.config import ConfigNode
-from dmoj.cptbox import IsolateTracer, TracedPopen, syscalls
+from dmoj.cptbox import CustomPipe, IsolateTracer, TracedPopen, syscalls
 from dmoj.cptbox.filesystem_policies import ExactDir, ExactFile, FilesystemAccessRule, RecursiveDir
 from dmoj.cptbox.handlers import ALLOW
 from dmoj.error import InternalError
@@ -277,18 +277,25 @@ class BaseExecutor(metaclass=ExecutorMeta):
         if 'path_case_insensitive_whitelist' not in kwargs:
             kwargs['path_case_insensitive_whitelist'] = []
 
+        stdin, stdout = None, None
         if isinstance(kwargs.get('file_io'), ConfigNode):
             file_io = kwargs['file_io']
 
             if isinstance(file_io.get('input'), str):
+                _child_stdin, _stdin = os.pipe()
+                os.set_inheritable(_child_stdin, True)
+                stdin = CustomPipe(_stdin, _child_stdin)
                 input = os.path.abspath(os.path.join(self._dir, file_io['input']))
-                create_symlink('/dev/stdin', input)
+                create_symlink('/proc/self/fd/3', input)
                 kwargs['path_case_fixes'].append(input)
                 kwargs['path_case_insensitive_whitelist'].append(input)
 
             if isinstance(file_io.get('output'), str):
+                _stdout, _child_stdout = os.pipe()
+                os.set_inheritable(_child_stdout, True)
+                stdout = CustomPipe(_stdout, _child_stdout)
                 output = os.path.abspath(os.path.join(self._dir, file_io['output']))
-                create_symlink('/dev/stdout', output)
+                create_symlink(f'/proc/self/fd/4', output)
                 kwargs['path_case_fixes'].append(output)
                 kwargs['path_case_insensitive_whitelist'].append(output)
 
@@ -320,8 +327,8 @@ class BaseExecutor(metaclass=ExecutorMeta):
             time=kwargs.get('time', 0),
             memory=kwargs.get('memory', 0),
             wall_time=kwargs.get('wall_time'),
-            stdin=kwargs.get('stdin'),
-            stdout=kwargs.get('stdout'),
+            stdin=stdin or kwargs.get('stdin'),
+            stdout=stdout or kwargs.get('stdout'),
             stderr=kwargs.get('stderr'),
             env=env,
             cwd=utf8bytes(self._dir),

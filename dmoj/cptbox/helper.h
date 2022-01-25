@@ -23,6 +23,8 @@ struct child_config {
     int stdin_;
     int stdout_;
     int stderr_;
+    int fd_3_;
+    int fd_4_;
     int *seccomp_handlers;
 };
 

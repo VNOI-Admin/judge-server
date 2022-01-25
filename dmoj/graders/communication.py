@@ -135,7 +135,6 @@ class CommunicationGrader(StandardGrader):
             self._user_procs[i] = self.binary.launch(
                 time=self.problem.time_limit,
                 memory=self.problem.memory_limit,
-                file_io=case.config.file_io,
                 symlinks=case.config.symlinks,
                 stdin=stdin_fd,
                 stdout=stdout_fd,

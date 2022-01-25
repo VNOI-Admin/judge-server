@@ -1,5 +1,0 @@
-language: PY3
-time: 2.5
-memory: 65536
-source: tle.py
-expect: TLE

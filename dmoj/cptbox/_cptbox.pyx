@@ -118,6 +118,8 @@ cdef extern from 'helper.h' nogil:
         int stdin_
         int stdout_
         int stderr_
+        int fd_3_
+        int fd_4_
         int abi_for_seccomp
         int *seccomp_handlers
 
@@ -420,7 +422,7 @@ cdef class Process:
     cdef readonly bint _exited
     cdef readonly int _exitcode
     cdef unsigned int _signal
-    cdef public int _child_stdin, _child_stdout, _child_stderr
+    cdef public int _child_stdin, _child_stdout, _child_stderr, _child_fd_3, _child_fd_4
     cdef public unsigned long _child_memory, _child_address, _child_personality
     cdef public unsigned int _cpu_time
     cdef public int _nproc, _fsize
@@ -431,7 +433,7 @@ cdef class Process:
 
     def __cinit__(self, *args, **kwargs):
         self._child_memory = self._child_address = 0
-        self._child_stdin = self._child_stdout = self._child_stderr = -1
+        self._child_stdin = self._child_stdout = self._child_stderr = self._child_fd_3 = self._child_fd_4 = -1
         self._cpu_time = 0
         self._fsize = -1
         self._nproc = -1
@@ -504,6 +506,8 @@ cdef class Process:
             config.stdin_ = self._child_stdin
             config.stdout_ = self._child_stdout
             config.stderr_ = self._child_stderr
+            config.fd_3_ = self._child_fd_3
+            config.fd_4_ = self._child_fd_4
             config.argv = alloc_byte_array(args)
             config.envp = alloc_byte_array(env)
 

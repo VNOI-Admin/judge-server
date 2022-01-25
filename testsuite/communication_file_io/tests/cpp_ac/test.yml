@@ -1,5 +1,0 @@
-language: CPP17
-time: 1
-memory: 65536
-source: ac.cpp
-expect: AC
