@@ -37,7 +37,7 @@ class BridgedInteractiveGrader(StandardGrader):
             stderr=stderr,
         )
 
-        return (not result.result_flag) and parsed_result
+        return (not result.result_lag) and parsed_result
 
     def _launch_process(self, case):
         self._interactor_stdin_pipe, submission_stdout_pipe = os.pipe()
@@ -45,7 +45,6 @@ class BridgedInteractiveGrader(StandardGrader):
         self._current_proc = self.binary.launch(
             time=self.problem.time_limit,
             memory=self.problem.memory_limit,
-            file_io=case.config.file_io,
             symlinks=case.config.symlinks,
             stdin=submission_stdin_pipe,
             stdout=submission_stdout_pipe,

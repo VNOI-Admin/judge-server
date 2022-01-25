@@ -1,5 +1,5 @@
 language: PY3
 time: 2
 memory: 65536
-source: ac.py
+source: post.py
 expect: AC

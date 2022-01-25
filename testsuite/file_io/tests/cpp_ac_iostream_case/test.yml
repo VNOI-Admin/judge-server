@@ -1,5 +1,5 @@
-language: PY3
+language: CPP11
 time: 2
 memory: 65536
-source: post.py
+source: post.cpp
 expect: AC

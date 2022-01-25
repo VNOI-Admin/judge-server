@@ -2,4 +2,4 @@ language: PY3
 time: 2
 memory: 65536
 source: post.py
-expect: AC
+expect: IR

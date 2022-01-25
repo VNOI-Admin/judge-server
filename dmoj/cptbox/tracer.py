@@ -6,7 +6,7 @@ import signal
 import subprocess
 import sys
 import threading
-from typing import Callable, List, Mapping, Optional, Union, Tuple, Type
+from typing import Callable, List, Mapping, Optional, Tuple, Type, Union
 
 from dmoj.cptbox._cptbox import *
 from dmoj.cptbox.handlers import ALLOW, DISALLOW, ErrnoHandlerCallback, _CALLBACK
@@ -87,7 +87,7 @@ class AdvancedDebugger(Debugger):
         return utf8text(read)
 
 
-class CustomPipe:
+class FileIOPipe:
     def __init__(self, fd: int, child_fd: int) -> None:
         self._fd = fd
         self._child_fd = child_fd
@@ -117,8 +117,8 @@ class TracedPopen(Process):
         security=None,
         time: int = 0,
         memory: int = 0,
-        stdin: Optional[Union[int, CustomPipe]] = PIPE,
-        stdout: Optional[Union[int, CustomPipe]] = PIPE,
+        stdin: Optional[Union[int, FileIOPipe]] = PIPE,
+        stdout: Optional[Union[int, FileIOPipe]] = PIPE,
         stderr: Optional[int] = None,
         env: Optional[Mapping[str, Optional[str]]] = None,
         nproc: int = 0,
@@ -387,6 +387,11 @@ class TracedPopen(Process):
             except OSError:
                 pass
 
+    def _get_devnull(self):
+        if not hasattr(self, '_devnull'):
+            self._devnull = os.open(os.devnull, os.O_RDWR)
+        return self._devnull
+
     def __init_streams(self, stdin, stdout, stderr) -> None:
         self.stdin = self.stdout = self.stderr = None
         self.stdin_needs_close = (
@@ -394,7 +399,8 @@ class TracedPopen(Process):
         ) = self.stderr_needs_close = self.fd_3_needs_close = self.fd_4_needs_close = False
         self._child_fd_3 = self._child_fd_4 = -1
 
-        if isinstance(stdin, CustomPipe):
+        if isinstance(stdin, FileIOPipe):
+            self._child_stdin = self._get_devnull()
             self._child_fd_3, self._stdin = stdin.child_fd, stdin.fd
             self.stdin = os.fdopen(self._stdin, 'wb')
             self.fd_3_needs_close = True
@@ -409,7 +415,8 @@ class TracedPopen(Process):
         else:
             self._child_stdin = self._stdin = -1
 
-        if isinstance(stdout, CustomPipe):
+        if isinstance(stdout, FileIOPipe):
+            self._child_stdout = self._get_devnull()
             self._stdout, self._child_fd_4 = stdout.fd, stdout.child_fd
             self.stdout = os.fdopen(self._stdout, 'rb')
             self.fd_4_needs_close = True
