@@ -8,6 +8,7 @@ import tempfile
 import traceback
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
+from dmoj.config import ConfigNode
 from dmoj.cptbox import IsolateTracer, TracedPopen, syscalls
 from dmoj.cptbox.filesystem_policies import ExactDir, ExactFile, FilesystemAccessRule, RecursiveDir
 from dmoj.cptbox.handlers import ALLOW
@@ -218,6 +219,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
             read_fs=self.get_fs(),
             write_fs=self.get_write_fs(),
             path_case_fixes=launch_kwargs.get('path_case_fixes', []),
+            path_case_insensitive_whitelist=launch_kwargs.get('path_case_insensitive_whitelist', []),
         )
         return self._add_syscalls(sec)
 
@@ -256,18 +258,43 @@ class BaseExecutor(metaclass=ExecutorMeta):
         return env
 
     def launch(self, *args, **kwargs) -> TracedPopen:
+        def create_symlink(dst: str, src: str) -> None:
+            # Disallow the creation of symlinks outside the submission directory.
+            assert self._dir is not None
+            if os.path.commonprefix([src, self._dir]) != self._dir:
+                raise InternalError('cannot symlink outside of submission directory')
+
+            # If a link already exists under this name, it's probably from a
+            # previous case, but might point to something different.
+            if os.path.islink(src):
+                os.unlink(src)
+            os.symlink(dst, src)
+
         assert self._dir is not None
+
+        if 'path_case_fixes' not in kwargs:
+            kwargs['path_case_fixes'] = []
+        if 'path_case_insensitive_whitelist' not in kwargs:
+            kwargs['path_case_insensitive_whitelist'] = []
+
+        if isinstance(kwargs.get('file_io'), ConfigNode):
+            file_io = kwargs['file_io']
+
+            if isinstance(file_io.get('input'), str):
+                input = os.path.abspath(os.path.join(self._dir, file_io['input']))
+                create_symlink('/dev/stdin', input)
+                kwargs['path_case_fixes'].append(input)
+                kwargs['path_case_insensitive_whitelist'].append(input)
+
+            if isinstance(file_io.get('output'), str):
+                output = os.path.abspath(os.path.join(self._dir, file_io['output']))
+                create_symlink('/dev/stdout', output)
+                kwargs['path_case_fixes'].append(output)
+                kwargs['path_case_insensitive_whitelist'].append(output)
+
         for src, dst in kwargs.get('symlinks', {}).items():
             src = os.path.abspath(os.path.join(self._dir, src))
-            # Disallow the creation of symlinks outside the submission directory.
-            if os.path.commonprefix([src, self._dir]) == self._dir:
-                # If a link already exists under this name, it's probably from a
-                # previous case, but might point to something different.
-                if os.path.islink(src):
-                    os.unlink(src)
-                os.symlink(dst, src)
-            else:
-                raise InternalError('cannot symlink outside of submission directory')
+            create_symlink(dst, src)
 
         agent = self._file('setbufsize.so')
         shutil.copyfile(setbufsize_path, agent)

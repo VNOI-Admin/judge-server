@@ -30,13 +30,14 @@ except AttributeError:
 
 
 class IsolateTracer(dict):
-    def __init__(self, read_fs, write_fs=None, writable=(1, 2), path_case_fixes=[]):
+    def __init__(self, read_fs, write_fs=None, writable=(1, 2), path_case_fixes=[], path_case_insensitive_whitelist=[]):
         super().__init__()
         self.read_fs_jail = self._compile_fs_jail(read_fs)
         self.write_fs_jail = self._compile_fs_jail(write_fs)
 
         self._writable = list(writable)
         self._path_case_fixes = path_case_fixes
+        self._path_case_insensitive_whitelist = path_case_insensitive_whitelist
 
         if sys.platform.startswith('freebsd'):
             self._getcwd_pid = lambda pid: utf8text(bsd_get_proc_cwd(pid))
@@ -225,7 +226,6 @@ class IsolateTracer(dict):
 
     @staticmethod
     def write_path(debugger: Debugger, ptr: int, file: str):
-        assert os.path.abspath(file) == file, 'Must pass an absolute path'
         try:
             debugger.writestr(ptr, file)
         except OSError:
@@ -242,7 +242,7 @@ class IsolateTracer(dict):
 
             file, error = self._file_access_check(file, debugger, is_open, is_write=is_write)
             if not error:
-                error = self._fix_path_case(debugger, argument, file)
+                error = self._fix_path_case(file, syscall, debugger, getattr(debugger, 'uarg%d' % argument))
                 if error is not None:
                     return error
                 return True
@@ -262,7 +262,7 @@ class IsolateTracer(dict):
                 file, debugger, is_open, is_write=is_write, dirfd=debugger.arg0, flag_reg=2
             )
             if not error:
-                error = self._fix_path_case(debugger, argument, file)
+                error = self._fix_path_case(file, syscall, debugger, getattr(debugger, 'uarg%d' % argument))
                 if error is not None:
                     return error
                 return True
@@ -312,6 +312,20 @@ class IsolateTracer(dict):
             normalized = os.path.join('/proc/self', os.path.relpath(file, f'/proc/{debugger.tid}'))
         real = os.path.realpath(file)
 
+        # This hack is needed for File IO, which, for compatibility with Windows, is case-insensitive.
+        # Because Unix is case-sensitive, two cases can happen:
+        #
+        # - `file` does not exist. os.path.realpath(file) returns the path as is.
+        #   `normalized` and `real` are the same, so the samefile check WILL ALWAYS PASS.
+        #
+        # - `file` does exist. os.path.realpath(file) may return anything depending on the environment:
+        #   `/dev/null`, `/dev/pts/0`, or even `/proc/{our pid}/fd/pipe:[?]`.
+        #   The samefile check can pass gracefully in some situations and fail terribly in others.
+        #
+        # To avoid this nightmare, let's just skip the check.
+        if normalized.lower() in self._path_case_insensitive_whitelist:
+            return normalized, None
+
         try:
             same = normalized == real or os.path.samefile(projected, real)
         except OSError:
@@ -339,13 +353,34 @@ class IsolateTracer(dict):
 
         return normalized, None
 
-    def _fix_path_case(self, debugger, argument, file):
+    def _fix_path_case(self, file: str, syscall: str, debugger: Debugger, ptr: int):
         # Windows is case-insensitive, while Unix is case-sensitive.
         # This makes some checkers that were originally written for Windows fail to work on Unix.
         # If required, we fix the path here, so the checker would work normally.
         for dest in self._path_case_fixes:
             if dest.lower() == file.lower():
-                return self.write_path(debugger, getattr(debugger, 'uarg%d' % argument), dest)
+                # file and dest are absolute paths, but the original path passed to the syscall can be relative.
+                # Due to potential difference in length, it's not possible to overwrite the original path with dest.
+                # We need to read that original path and apply the fix on it.
+                # e.g. orig_path = "PoSt.InP"; file = "/tmp/tmp2b4uv0zl/PoSt.InP"; dest = "/tmp/tmp2b4uv0zl/post.inp"
+                # We need to fix the path to "post.inp".
+
+                orig_path, error = self.read_path(syscall, debugger, ptr)
+                if error is not None:
+                    return error
+
+                # To keep it simple, we'll only fix the base name.
+                orig_basename = os.path.basename(file)  # "PoSt.InP" for the example above
+                basename = os.path.basename(dest)  # "post.inp" for the example above
+                assert len(orig_basename) == len(basename)
+
+                if not orig_path.endswith(orig_basename):
+                    # Looks like directory traversal is involved.
+                    # For simplicity and safety, we won't apply any fix here.
+                    return None
+
+                fixed_path = orig_path[: -len(orig_basename)] + basename
+                return self.write_path(debugger, ptr, fixed_path)
 
     def get_full_path(self, debugger: Debugger, file: str, dirfd: int = AT_FDCWD) -> str:
         dirfd = (dirfd & 0x7FFFFFFF) - (dirfd & 0x80000000)

@@ -78,6 +78,7 @@ class StandardGrader(BaseGrader):
         self._current_proc = self.binary.launch(
             time=self.problem.time_limit,
             memory=self.problem.memory_limit,
+            file_io=case.config.file_io,
             symlinks=case.config.symlinks,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,

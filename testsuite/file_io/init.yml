@@ -1,0 +1,7 @@
+file_io: {
+  input: post.inp,
+  output: post.out
+}
+
+test_cases:
+- {in: post.inp, out: post.out, points: 1}

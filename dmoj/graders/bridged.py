@@ -45,6 +45,7 @@ class BridgedInteractiveGrader(StandardGrader):
         self._current_proc = self.binary.launch(
             time=self.problem.time_limit,
             memory=self.problem.memory_limit,
+            file_io=case.config.file_io,
             symlinks=case.config.symlinks,
             stdin=submission_stdin_pipe,
             stdout=submission_stdout_pipe,
