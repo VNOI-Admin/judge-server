@@ -394,9 +394,8 @@ class TracedPopen(Process):
 
     def __init_streams(self, stdin, stdout, stderr) -> None:
         self.stdin = self.stdout = self.stderr = None
-        self.stdin_needs_close = (
-            self.stdout_needs_close
-        ) = self.stderr_needs_close = self.fd_3_needs_close = self.fd_4_needs_close = False
+        self.stdin_needs_close = self.stdout_needs_close= self.stderr_needs_close = False
+        self.fd_3_needs_close = self.fd_4_needs_close = False
         self._child_fd_3 = self._child_fd_4 = -1
 
         if isinstance(stdin, FileIOPipe):

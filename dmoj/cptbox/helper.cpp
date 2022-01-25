@@ -43,6 +43,11 @@ inline void setrlimit2(int resource, rlim_t limit) {
     setrlimit2(resource, limit, limit);
 }
 
+static inline void cptbox_close_fd(int fd) {
+    while (close(fd) < 0 && errno == EINTR)
+        ;
+}
+
 int cptbox_child_run(const struct child_config *config) {
 #ifndef __FreeBSD__
     // There is no ASLR on FreeBSD, but disable it elsewhere
@@ -69,8 +74,12 @@ int cptbox_child_run(const struct child_config *config) {
         dup2(config->stderr_, 2);
     if (config->fd_3_ >= 0)
         dup2(config->fd_3_, 3);
+    else
+        cptbox_close_fd(3);
     if (config->fd_4_ >= 0)
         dup2(config->fd_4_, 4);
+    else
+        cptbox_close_fd(4);
     cptbox_closefrom(5);
 
     if (ptrace_traceme()) {
@@ -163,11 +172,6 @@ static int pos_int_from_ascii(char *name) {
     if (*name)
         return -1; /* Non digit found, not a number. */
     return num;
-}
-
-static inline void cptbox_close_fd(int fd) {
-    while (close(fd) < 0 && errno == EINTR)
-        ;
 }
 
 static void cptbox_closefrom_brute(int lowfd) {
