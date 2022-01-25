@@ -3,9 +3,8 @@ communication:
   manager:
     files: manager.cpp
   num_processes: 2
-file_io: {
-  input: cipher.inp,
+file_io:
+  input: cipher.inp
   output: cipher.out
-}
 test_cases:
   - in: 1.in
