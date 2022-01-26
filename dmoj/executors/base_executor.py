@@ -286,7 +286,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
                 os.set_inheritable(_child_stdin, True)
                 stdin = FileIOPipe(_stdin, _child_stdin)
                 input = os.path.abspath(os.path.join(self._dir, file_io['input']))
-                create_symlink('/proc/self/fd/3', input)
+                create_symlink('/dev/fd/3', input)
                 kwargs['path_case_fixes'].append(input)
                 kwargs['path_case_insensitive_whitelist'].append(input)
 
@@ -295,7 +295,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
                 os.set_inheritable(_child_stdout, True)
                 stdout = FileIOPipe(_stdout, _child_stdout)
                 output = os.path.abspath(os.path.join(self._dir, file_io['output']))
-                create_symlink('/proc/self/fd/4', output)
+                create_symlink('/dev/fd/4', output)
                 kwargs['path_case_fixes'].append(output)
                 kwargs['path_case_insensitive_whitelist'].append(output)
 
