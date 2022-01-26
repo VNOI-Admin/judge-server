@@ -24,6 +24,8 @@ struct child_config {
     int stdin_;
     int stdout_;
     int stderr_;
+    int fd_3_;
+    int fd_4_;
     int *seccomp_handlers;
     // 64 cores ought to be enough for anyone.
     unsigned long cpu_affinity_mask;

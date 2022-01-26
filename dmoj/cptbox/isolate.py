@@ -48,12 +48,14 @@ class IsolateTracer(dict):
         read_fs: List[FilesystemAccessRule],
         write_fs: List[FilesystemAccessRule],
         path_case_fixes=None,
+        path_whitelist=None,
     ):
         super().__init__()
         self.read_fs_jail = self._compile_fs_jail(read_fs)
         self.write_fs_jail = self._compile_fs_jail(write_fs)
 
         self._path_case_fixes = path_case_fixes or []
+        self._path_whitelist = path_whitelist or []
 
         if sys.platform.startswith('freebsd'):
             self._getcwd_pid = lambda pid: utf8text(bsd_get_proc_cwd(pid))
@@ -378,6 +380,13 @@ class IsolateTracer(dict):
             # Access rules can more easily check /proc/self.
             normalized = os.path.join('/proc/self', os.path.relpath(file, f'/proc/{debugger.tid}'))
         real = os.path.realpath(file)
+
+        # This hack is need for File IO, which symlinks the input/output files to `/dev/fd/3` and `/dev/fd/4`.
+        # As a result, os.path.realpath(file) may return anything depending on the environment:
+        # `/dev/null`, `/dev/pts/0`, or even `/proc/{our pid}/fd/pipe:[?]`.
+        # To avoid this nightmare, let's just skip the check.
+        if normalized in self._path_whitelist:
+            return
 
         try:
             same = normalized == real or real.startswith('/memfd:') or os.path.samefile(projected, real)
