@@ -333,6 +333,8 @@ class TracedPopen(Process):
                 os.close(self._child_fd_3)
             if self.fd_4_needs_close:
                 os.close(self._child_fd_4)
+            if hasattr(self, '_devnull'):
+                os.close(self._devnull)
 
             self._spawned_or_errored.set()
 
