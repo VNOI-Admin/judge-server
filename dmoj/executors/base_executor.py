@@ -9,7 +9,7 @@ import traceback
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from dmoj.config import ConfigNode
-from dmoj.cptbox import FileIOPipe, IsolateTracer, TracedPopen, syscalls
+from dmoj.cptbox import FILE_IO_PIPE, IsolateTracer, TracedPopen, syscalls
 from dmoj.cptbox.filesystem_policies import ExactDir, ExactFile, FilesystemAccessRule, RecursiveDir
 from dmoj.cptbox.handlers import ALLOW
 from dmoj.error import InternalError
@@ -279,21 +279,24 @@ class BaseExecutor(metaclass=ExecutorMeta):
 
         stdin, stdout = None, None
         if isinstance(kwargs.get('file_io'), ConfigNode):
+            # Here's roughly how File IO works:
+            # - The input/output files are symlinks to `/dev/fd/3` and `/dev/fd/4`, respectively.
+            # - When passed FILE_IO_PIPE, TracedPopen will pipe the actual input/output to fd 3/4
+            #   instead of stdin/stdout. stdin and stdout are piped to `/dev/null`.
+            #
+            # On FreeBSD, fdescfs needs to be mounted manually: mount -t fdescfs null /dev/fd
+
             file_io = kwargs['file_io']
 
             if isinstance(file_io.get('input'), str):
-                _child_stdin, _stdin = os.pipe()
-                os.set_inheritable(_child_stdin, True)
-                stdin = FileIOPipe(_stdin, _child_stdin)
+                stdin = FILE_IO_PIPE
                 input = os.path.abspath(os.path.join(self._dir, file_io['input']))
                 create_symlink('/dev/fd/3', input)
                 kwargs['path_case_fixes'].append(input)
                 kwargs['path_case_insensitive_whitelist'].append(input)
 
             if isinstance(file_io.get('output'), str):
-                _stdout, _child_stdout = os.pipe()
-                os.set_inheritable(_child_stdout, True)
-                stdout = FileIOPipe(_stdout, _child_stdout)
+                stdout = FILE_IO_PIPE
                 output = os.path.abspath(os.path.join(self._dir, file_io['output']))
                 create_symlink('/dev/fd/4', output)
                 kwargs['path_case_fixes'].append(output)

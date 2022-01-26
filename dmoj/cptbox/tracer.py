@@ -6,7 +6,7 @@ import signal
 import subprocess
 import sys
 import threading
-from typing import Callable, List, Mapping, Optional, Tuple, Type, Union
+from typing import Callable, List, Mapping, Optional, Tuple, Type
 
 from dmoj.cptbox._cptbox import *
 from dmoj.cptbox.handlers import ALLOW, DISALLOW, ErrnoHandlerCallback, _CALLBACK
@@ -17,6 +17,9 @@ from dmoj.utils.unicode import utf8bytes, utf8text
 
 PIPE = subprocess.PIPE
 STDOUT = subprocess.STDOUT
+FILE_IO_PIPE = -4
+assert FILE_IO_PIPE != PIPE and FILE_IO_PIPE != STDOUT
+
 log = logging.getLogger('dmoj.cptbox')
 
 _PIPE_BUF = getattr(select, 'PIPE_BUF', 512)
@@ -87,20 +90,6 @@ class AdvancedDebugger(Debugger):
         return utf8text(read)
 
 
-class FileIOPipe:
-    def __init__(self, fd: int, child_fd: int) -> None:
-        self._fd = fd
-        self._child_fd = child_fd
-
-    @property
-    def fd(self) -> int:
-        return self._fd
-
-    @property
-    def child_fd(self) -> int:
-        return self._child_fd
-
-
 class TracedPopen(Process):
     _executable: bytes
     _last_ptrace_errno: Optional[int]
@@ -117,8 +106,8 @@ class TracedPopen(Process):
         security=None,
         time: int = 0,
         memory: int = 0,
-        stdin: Optional[Union[int, FileIOPipe]] = PIPE,
-        stdout: Optional[Union[int, FileIOPipe]] = PIPE,
+        stdin: Optional[int] = PIPE,
+        stdout: Optional[int] = PIPE,
         stderr: Optional[int] = None,
         env: Optional[Mapping[str, Optional[str]]] = None,
         nproc: int = 0,
@@ -398,9 +387,9 @@ class TracedPopen(Process):
         self.fd_3_needs_close = self.fd_4_needs_close = False
         self._child_fd_3 = self._child_fd_4 = -1
 
-        if isinstance(stdin, FileIOPipe):
+        if stdin == FILE_IO_PIPE:
             self._child_stdin = self._get_devnull()
-            self._child_fd_3, self._stdin = stdin.child_fd, stdin.fd
+            self._child_fd_3, self._stdin = os.pipe()
             self.stdin = os.fdopen(self._stdin, 'wb')
             self.fd_3_needs_close = True
         elif stdin == PIPE:
@@ -414,9 +403,9 @@ class TracedPopen(Process):
         else:
             self._child_stdin = self._stdin = -1
 
-        if isinstance(stdout, FileIOPipe):
+        if stdout == FILE_IO_PIPE:
             self._child_stdout = self._get_devnull()
-            self._stdout, self._child_fd_4 = stdout.fd, stdout.child_fd
+            self._stdout, self._child_fd_4 = os.pipe()
             self.stdout = os.fdopen(self._stdout, 'rb')
             self.fd_4_needs_close = True
         elif stdout == PIPE:
