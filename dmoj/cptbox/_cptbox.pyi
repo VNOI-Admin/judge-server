@@ -45,6 +45,8 @@ class Process:
     _child_stdin: int
     _child_stdout: int
     _child_stderr: int
+    _child_fd_3: int
+    _child_fd_4: int
     _child_memory: int
     _child_address: int
     _child_personality: int
