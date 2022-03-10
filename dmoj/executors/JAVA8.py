@@ -34,4 +34,4 @@ public class self_test {
         compiler = self.get_compiler()
         assert compiler is not None
         assert self._code is not None
-        return [compiler, '-encoding', 'UTF-8', '-profile', 'compact1', self._code]
+        return [compiler, '-encoding', 'UTF-8', '-profile', 'compact1', *self.source_paths]

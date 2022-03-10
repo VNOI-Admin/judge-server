@@ -186,8 +186,9 @@ class CommunicationGrader(StandardGrader):
 
         executor = executors[self.language].Executor
         is_signature_gradable = getattr(executor, 'is_signature_gradable', False)
+        ext = getattr(executor, 'ext', None)
 
-        if is_signature_gradable:
+        if is_signature_gradable and ext in ('c', 'cpp'):
             aux_sources = {}
             signature_data = self.problem.config.communication.signature
 
@@ -205,6 +206,20 @@ class CommunicationGrader(StandardGrader):
             return executor(
                 self.problem.id, entry, aux_sources=aux_sources, defines=['-DSIGNATURE_GRADER']
             )
+        elif is_signature_gradable and ext == 'java':
+            aux_sources = {}
+            handler_data = self.problem.config.communication.signature['java']
+
+            entry_point = self.problem.problem_data[handler_data['entry']]
+
+            if not self.problem.config.communication.signature.get('allow_main', False):
+                entry = entry_point
+                aux_sources[self.problem.id + '_submission'] = self.source
+            else:
+                entry = self.source
+                aux_sources[self.problem.id + '_lib'] = entry_point
+
+            return executor(self.problem.id, entry, aux_sources=aux_sources)
         else:
             raise InternalError('no valid runtime for signature grading %s found' % self.language)
 
