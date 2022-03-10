@@ -74,6 +74,9 @@ class JavaExecutor(SingleDigitVersionMixin, CompiledExecutor):
     def __init__(self, problem_id: str, source_code: bytes, **kwargs) -> None:
         self._class_name = None
         self._agent_file = JAVA_SANDBOX
+        self.source_dict = kwargs.pop('aux_sources', {})
+        if source_code:
+            self.source_dict[problem_id + '.' + self.ext] = source_code
         super().__init__(problem_id, source_code, **kwargs)
 
     def get_compile_popen_kwargs(self) -> Dict[str, Any]:
@@ -234,27 +237,35 @@ class JavaExecutor(SingleDigitVersionMixin, CompiledExecutor):
 class JavacExecutor(JavaExecutor):
     def create_files(self, problem_id: str, source_code: bytes, *args, **kwargs) -> None:
         super().create_files(problem_id, source_code, *args, **kwargs)
-        # This step is necessary because of Unicode classnames
-        try:
-            source = utf8text(source_code)
-        except UnicodeDecodeError:
-            raise CompileError('Your UTF-8 is bad, and you should feel bad')
-        class_name = find_class(source)
-        self._code = self._file(f'{class_name}.java')
-        try:
-            with open(self._code, 'wb') as fo:
-                fo.write(utf8bytes(source))
-        except IOError as e:
-            if e.errno in (errno.ENAMETOOLONG, errno.ENOENT, errno.EINVAL):
-                raise CompileError('Why do you need a class name so long? As a judge, I sentence your code to death.\n')
-            raise
-        self._class_name = class_name
+        self.source_paths = []
+        for name, source in self.source_dict.items():
+            # This step is necessary because of Unicode classnames
+            try:
+                source = utf8text(source)
+            except UnicodeDecodeError:
+                raise CompileError('Your UTF-8 is bad, and you should feel bad')
+            class_name = find_class(source)
+            file_name = self._file(f'{class_name}.java')
+            try:
+                with open(file_name, 'wb') as fo:
+                    fo.write(utf8bytes(source))
+            except IOError as e:
+                if e.errno in (errno.ENAMETOOLONG, errno.ENOENT, errno.EINVAL):
+                    raise CompileError(
+                        'Why do you need a class name so long? As a judge, I sentence your code to death.\n'
+                    )
+                raise
+            self.source_paths.append(file_name)
+
+            # This is the entry file, we should save its class name
+            if name == problem_id + '.' + self.ext:
+                self._class_name = class_name
 
     def get_compile_args(self) -> List[str]:
         compiler = self.get_compiler()
         assert compiler is not None
-        assert self._code is not None
-        return [compiler, '-Xlint', '-encoding', 'UTF-8', self._code]
+        assert len(self.source_paths) > 0
+        return [compiler, '-Xlint', '-encoding', 'UTF-8', *self.source_paths]
 
     def handle_compile_error(self, output: bytes):
         if b'is public, should be declared in a file named' in utf8bytes(output):
