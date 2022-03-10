@@ -5,6 +5,8 @@ communication:
   signature:
     entry: stub.cpp
     header: header.h
+    java:
+      entry: stub.java
   num_processes: 2
 test_cases:
   - in: 1.in
