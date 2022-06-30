@@ -3,15 +3,18 @@ FROM dmoj/runtimes-tier1
 ARG TAG=master
 
 RUN apt-get update && \
+    curl -sL https://deb.nodesource.com/setup_16.x | bash && \
+    apt-get install -y nodejs && \
+    mkdir /ScratchCLI && cd /ScratchCLI && \
+    curl -L https://github.com/cuom1999/ScratchCLI/archive/master.tar.gz | tar -xz --strip-components=1 && \
+    npm install . && npm install . -g
+
+RUN apt-get update && \
     apt-get install -y --no-install-recommends unzip jq openjdk-17-jdk-headless && \
     rm -rf /var/lib/apt/lists/*
 
 # Install scratch + pypy + kotlin
 RUN ARCH=$([ $(uname -m) = "x86_64" ] && echo "amd64" || echo "arm64") && \
-    curl --location -o scratch-run.zip $(curl -s https://api.github.com/repos/VNOI-Admin/scratch-run/releases/latest | grep -o -m 1 "https://github\.com.*.*linux_$ARCH\.zip") && \
-    unzip scratch-run.zip && \
-    mv scratch-run /usr/bin/scratch-run && \
-    rm scratch-run.zip && \
     if [ "$(arch)" = x86_64 ]; then PYPY_ARCH=linux64; else PYPY_ARCH="$(arch)"; fi && \
     mkdir /opt/pypy2 && curl -L "$(curl https://www.pypy.org/download.html | grep "/pypy2.*$PYPY_ARCH" | head -n1 | cut -d'"' -f4 | sed "s/-portable//")" | \
     tar xj -C /opt/pypy2 --strip-components=1 && /opt/pypy2/bin/pypy -mcompileall && \
@@ -25,8 +28,9 @@ RUN ARCH=$([ $(uname -m) = "x86_64" ] && echo "amd64" || echo "arm64") && \
 
 ENV PATH="/opt/kotlin/bin:/opt/pypy2/bin:/opt/pypy3/bin:${PATH}"
 
+
 RUN mkdir /judge /problems && cd /judge && \
-    curl -L https://github.com/VNOI-Admin/judge-server/archive/"${TAG}".tar.gz | tar -xz --strip-components=1 && \
+    curl -L https://github.com/LQDJudge/judge-server/archive/"${TAG}".tar.gz | tar -xz --strip-components=1 && \
     pip3 install -e . && \
     python3 setup.py develop && \
     HOME=~judge . ~judge/.profile && \
