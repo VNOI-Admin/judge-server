@@ -15,12 +15,12 @@ problem_dirs = ()
 problem_watches = ()
 env = ConfigNode(
     defaults={
-        'selftest_time_limit': 10,  # 10 seconds
+        'selftest_time_limit': 60,  # 60 seconds
         'selftest_memory_limit': 131072,  # 128mb of RAM
         'generator_compiler_time_limit': 30,  # 30 seconds
         'generator_time_limit': 20,  # 20 seconds
         'generator_memory_limit': 524288,  # 512mb of RAM
-        'compiler_time_limit': 60,  # Kill compiler after 10 seconds
+        'compiler_time_limit': 60,  # Kill compiler after 60 seconds
         'compiler_size_limit': 131072,  # Maximum allowable compiled file size, 128mb
         'compiler_output_character_limit': 65536,  # Number of characters allowed in compile output
         'compiled_binary_cache_dir': None,  # Location to store cached binaries, defaults to tempdir
