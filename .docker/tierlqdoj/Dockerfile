@@ -4,16 +4,11 @@ ARG TAG=master
 
 RUN apt-get update && \
     curl -sL https://deb.nodesource.com/setup_16.x | bash && \
-    apt-get install -y nodejs && \
+    apt-get install -y nodejs npm && \
     mkdir /ScratchCLI && cd /ScratchCLI && \
     curl -L https://github.com/cuom1999/ScratchCLI/archive/master.tar.gz | tar -xz --strip-components=1 && \
     npm install . && npm install . -g
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends unzip jq openjdk-17-jdk-headless && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install scratch + pypy + kotlin
 RUN ARCH=$([ $(uname -m) = "x86_64" ] && echo "amd64" || echo "arm64") && \
     if [ "$(arch)" = x86_64 ]; then PYPY_ARCH=linux64; else PYPY_ARCH="$(arch)"; fi && \
     mkdir /opt/pypy2 && curl -L "$(curl https://www.pypy.org/download.html | grep "/pypy2.*$PYPY_ARCH" | head -n1 | cut -d'"' -f4 | sed "s/-portable//")" | \
@@ -21,12 +16,9 @@ RUN ARCH=$([ $(uname -m) = "x86_64" ] && echo "amd64" || echo "arm64") && \
     rm -f /opt/pypy2/bin/python* && \
     mkdir /opt/pypy3 && curl -L "$(curl https://www.pypy.org/download.html | grep "/pypy3.*$PYPY_ARCH" | head -n1 | cut -d'"' -f4 | sed "s/-portable//")" | \
     tar xj -C /opt/pypy3 --strip-components=1 && /opt/pypy3/bin/pypy -mcompileall && \
-    rm -f /opt/pypy3/bin/python* && \
-    curl -L -okotlin.zip "$(curl -s https://api.github.com/repos/JetBrains/kotlin/releases | \
-        jq -r '[.[] | select(.prerelease | not) | .assets | flatten | .[] | select(.name | startswith("kotlin-compiler")) | .browser_download_url][0]')" && \
-    unzip kotlin.zip && mv kotlinc /opt/kotlin && rm kotlin.zip
+    rm -f /opt/pypy3/bin/python*
 
-ENV PATH="/opt/kotlin/bin:/opt/pypy2/bin:/opt/pypy3/bin:${PATH}"
+ENV PATH="/opt/pypy2/bin:/opt/pypy3/bin:${PATH}"
 
 
 RUN mkdir /judge /problems && cd /judge && \
