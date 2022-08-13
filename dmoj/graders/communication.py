@@ -73,6 +73,9 @@ class CommunicationGrader(StandardGrader):
             result.result_flag |= Result.TLE
 
     def check_result(self, case, result):
+        if (case.config['checker'] or 'standard') != 'standard':
+            return super().check_result(case, result)
+
         if result.result_flag:
             return False
 
