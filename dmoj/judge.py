@@ -315,7 +315,7 @@ class JudgeWorker:
         child_conn.close()
 
     def communicate(self) -> Generator[Tuple[IPC, tuple], None, None]:
-        recv_timeout = max(60, int(2 * self.submission.time_limit))
+        recv_timeout = max(300, int(2 * self.submission.time_limit))
         while True:
             try:
                 if not self.worker_process_conn.poll(timeout=recv_timeout):
