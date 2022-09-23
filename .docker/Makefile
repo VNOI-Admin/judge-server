@@ -17,5 +17,8 @@ judge-tier3:
 judge-tiervnoj:
 	docker build --build-arg TAG="${GIT_TAG}" -t vnoj/judge-tiervnoj -t vnoj/judge-tiervnoj:$(TAG) tiervnoj
 
+judge-tierlqdoj-nocache:
+	docker build --build-arg TAG="${GIT_TAG}" -t vnoj/judge-tierlqdoj -t vnoj/judge-tierlqdoj:$(TAG) --no-cache tierlqdoj
+
 judge-tierlqdoj:
 	docker build --build-arg TAG="${GIT_TAG}" -t vnoj/judge-tierlqdoj -t vnoj/judge-tierlqdoj:$(TAG) tierlqdoj
