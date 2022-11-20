@@ -12,7 +12,7 @@ class ContribModule(DefaultContribModule):
     PARTIAL = 2
     IE = 3
     PE = 4
-    
+
     name = 'lqdoj'
     repartial = re.compile(br'^([-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)', re.M)
 
@@ -39,7 +39,7 @@ class ContribModule(DefaultContribModule):
             if not 0 <= points <= 1:
                 raise InternalError("Invalid partial points: %d" % points)
 
-            ac = (points == 1)
+            ac = points == 1
             return CheckerResult(ac, points * point_value, feedback=feedback, extended_feedback=extended_feedback)
         elif proc.returncode == cls.WA:
             return CheckerResult(False, 0, feedback=feedback, extended_feedback=extended_feedback)

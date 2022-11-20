@@ -9,10 +9,11 @@ import requests
 import time
 from zipfile import ZipFile
 
+
 class Executor(ScriptExecutor):
-    ext='sb3'
+    ext = 'sb3'
     name = 'SCAT'
-    nproc=-1
+    nproc = -1
     command = 'scratch'
     syscalls = [
         'newselect',
@@ -58,7 +59,9 @@ class Executor(ScriptExecutor):
         match = re.search(url_pattern, source_code_str)
 
         if match:
-            raise CompileError('Chức năng nộp bài bằng link đã tắt. Các bạn hãy tải file sb3 và nộp bài bằng cách tải file lên từ máy.')
+            raise CompileError(
+                'Chức năng nộp bài bằng link đã tắt. Các bạn hãy tải file sb3 và nộp bài bằng cách tải file lên từ máy.'
+            )
         self.create_files_from_json(source_code)
 
     def create_files_from_json(self, source_code):

@@ -456,13 +456,17 @@ class JudgeWorker:
 
         yield IPC.GRADING_BEGIN, (self.grader.is_pretested,)
 
-        flattened_cases: List[Tuple[Optional[int], Union[TestCase, BatchedTestCase]]] = []
+        flattened_cases: List[Tuple[Optional[int], Union[TestCase, BatchedTestCase], int]] = []
         batch_number = 0
         batch_dependencies: List[Set[int]] = []
+        batch_points: Dict[int, int] = {}
         for case in self.grader.cases():
             if isinstance(case, BatchedTestCase):
                 batch_number += 1
+                batch_points[batch_number] = case.points
+                sum_points = sum([i.points for i in case.batched_cases]) or 1
                 for batched_case in case.batched_cases:
+                    batched_case.points = batched_case.points / sum_points * case.points
                     flattened_cases.append((batch_number, batched_case))
                 batch_dependencies.append(set(case.dependencies))
             else:
@@ -508,13 +512,7 @@ class JudgeWorker:
                         return
 
                     if result.result_flag & Result.WA:
-                        # If we failed a 0-point case, we will short-circuit every case after this.
-                        is_short_circuiting_enabled |= not case.points
-
-                        # Short-circuit if we just failed a case in a batch, or if short-circuiting is currently enabled
-                        # for all test cases (either this was requested by the site, or we failed a 0-point case in the
-                        # past).
-                        is_short_circuiting |= batch_number is not None or is_short_circuiting_enabled
+                        is_short_circuiting |= not case.points
 
                 # Legacy hack: we need to allow graders to read and write `proc_output` on the `Result` object, but the
                 # judge controller only cares about the trimmed output, and shouldn't waste memory buffering the full
@@ -525,7 +523,8 @@ class JudgeWorker:
             if batch_number:
                 if not is_short_circuiting:
                     passed_batches.add(batch_number)
-
+                elif batch_points.get(batch_number, 0):
+                    is_short_circuiting = False
                 yield IPC.BATCH_END, (batch_number,)
                 is_short_circuiting &= is_short_circuiting_enabled
 
