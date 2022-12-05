@@ -1,7 +1,7 @@
 import builtins
 import re
 from collections import deque
-from typing import List
+from typing import Dict, List
 
 from dmoj.cptbox import TracedPopen
 from dmoj.executors.compiled_executor import CompiledExecutor
@@ -45,6 +45,12 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         command = self.get_command()
         assert command is not None
         return command
+
+    def get_env(self) -> Dict[str, str]:
+        env = super().get_env()
+        # Disable integer string conversion length limitation
+        env['PYTHONINTMAXSTRDIGITS'] = '0'
+        return env
 
     def create_files(self, problem_id: str, source_code: bytes, *args, **kwargs) -> None:
         super().create_files(problem_id, source_code, **kwargs)
