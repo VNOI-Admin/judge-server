@@ -1,7 +1,7 @@
 import builtins
 import re
 from collections import deque
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pygments import highlight
 from pygments.formatters import Terminal256Formatter
@@ -52,6 +52,12 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         command = self.get_command()
         assert command is not None
         return command
+
+    def get_env(self) -> Dict[str, str]:
+        env = super().get_env()
+        # Disable integer string conversion length limitation
+        env['PYTHONINTMAXSTRDIGITS'] = '0'
+        return env
 
     def handle_compile_error(self, output: bytes) -> None:
         if self.pygments_traceback_lexer:
