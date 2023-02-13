@@ -16,7 +16,7 @@ RUN mkdir /judge /problems && cd /judge && \
     g++ -std=c++17 -Wall -DONLINE_JUDGE -O2 -fmax-errors=5 -march=native -s /usr/include/testlib.h && \
     curl -L https://raw.githubusercontent.com/skyvn97/testlib/customized-testlib/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h && \
     g++ -std=c++17 -Wall -DONLINE_JUDGE -DTHEMIS -O2 -fmax-errors=5 -march=native -s /usr/include/testlib_themis_cms.h && \
-    curl -L https://raw.githubusercontent.com/skyvn97/testlib/customized-testlib/testlib_modified.h -o /usr/include/testlib_modified.h && \
+    curl -L https://raw.githubusercontent.com/cuom1999/testlib/customized-testlib/testlib_modified.h -o /usr/include/testlib_modified.h && \
     g++ -std=c++17 -Wall -DONLINE_JUDGE -DTHEMIS -O2 -fmax-errors=5 -march=native -s /usr/include/testlib_modified.h && \
     find /usr/include/ -name stdc++.h -exec g++ -std=c++17 -Wall -DONLINE_JUDGE -O2 -fmax-errors=5 -march=native -s {} \;
 
