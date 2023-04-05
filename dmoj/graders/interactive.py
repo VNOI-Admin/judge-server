@@ -17,7 +17,7 @@ class Interactor:
         self._tokens = None
 
     def _abbreviate(self, s, n=5):
-        s = utf8text(s)
+        s = utf8text(s, 'replace')
         if len(s) > n:
             return s[:n] + '...'
         return s

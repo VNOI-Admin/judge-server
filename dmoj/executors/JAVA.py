@@ -8,13 +8,16 @@ class Executor(JavacExecutor):
 
     test_program = """\
 import java.io.IOException;
+
 interface IORunnable {
     public void run() throws IOException;
 }
+
 public class self_test {
     public static void run(IORunnable target) throws IOException {
         target.run();
     }
+
     public static void main(String[] args) throws IOException {
         run(() -> {
             byte[] buffer = new byte[4096];
@@ -26,4 +29,4 @@ public class self_test {
 }"""
 
     def get_compile_args(self):
-        return [self.get_compiler(), '-encoding', 'UTF-8', self._code]
+        return [self.get_compiler(), '-encoding', 'UTF-8', *self.source_paths]

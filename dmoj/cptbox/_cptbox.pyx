@@ -84,7 +84,6 @@ cdef extern from 'ptbox.h' nogil:
 
     cdef int PTBOX_EXIT_NORMAL
     cdef int PTBOX_EXIT_PROTECTION
-    cdef int PTBOX_EXIT_SEGFAULT
 
     cpdef enum:
         PTBOX_ABI_X86
@@ -424,7 +423,6 @@ cdef class Process:
     cdef public Debugger debugger
     cdef readonly bint _exited
     cdef readonly int _exitcode
-    cdef unsigned int _signal
     cdef public int _child_stdin, _child_stdout, _child_stderr, _child_fd_3, _child_fd_4
     cdef public unsigned long _child_memory, _child_address, _child_personality
     cdef public unsigned int _cpu_time
@@ -442,7 +440,6 @@ cdef class Process:
         self._cpu_time = 0
         self._fsize = -1
         self._nproc = -1
-        self._signal = 0
         self._cpu_affinity_mask = 0
         self._init_nvcsw = self._init_nivcsw = 0
 
@@ -475,8 +472,6 @@ cdef class Process:
             with gil:
                 self._ptrace_error(param)
         if event == PTBOX_EVENT_SIGNAL:
-            if param != SIGTRAP:
-                self._signal = param
             if param == SIGXCPU:
                 with gil:
                     self._cpu_time_exceeded()
@@ -600,7 +595,14 @@ cdef class Process:
     def signal(self):
         if not self._exited:
             return None
-        return self._signal if self.process.was_initialized() else 0
+
+        if not self.process.was_initialized():
+            return None
+
+        if self._exitcode >= 0:
+            return None
+
+        return -self._exitcode
 
     @property
     def returncode(self):

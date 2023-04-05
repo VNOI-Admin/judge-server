@@ -9,15 +9,9 @@ class Executor(ScriptExecutor):
     nproc = -1
     command = 'node'
     syscalls = [
-        'newselect',
-        'select',
-        'epoll_create1',
-        'epoll_ctl',
-        'epoll_wait',
-        'epoll_pwait',
-        'sched_yield',
-        'setrlimit',
+        'capget',
         'eventfd2',
+        'setrlimit',
         'statx',
     ]
     test_program = """\

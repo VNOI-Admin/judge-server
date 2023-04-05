@@ -1,0 +1,1 @@
+https://github.com/VNOI-Admin/judge-server/raw/master/testsuite/helloworld/tests/scratch_mle/hello.sb3

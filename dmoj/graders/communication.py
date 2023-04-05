@@ -73,6 +73,9 @@ class CommunicationGrader(StandardGrader):
             result.result_flag |= Result.TLE
 
     def check_result(self, case, result):
+        if (case.config['checker'] or 'standard') != 'standard':
+            return super().check_result(case, result)
+
         if result.result_flag:
             return False
 
@@ -82,8 +85,8 @@ class CommunicationGrader(StandardGrader):
             case.points,
             self._manager_time_limit,
             self._manager_memory_limit,
-            feedback=utf8text(result.proc_output),
-            extended_feedback=utf8text(self._manager_stderr),
+            feedback=utf8text(result.proc_output, 'replace'),
+            extended_feedback=utf8text(self._manager_stderr, 'replace'),
             name='manager',
             stderr=self._manager_stderr,
         )

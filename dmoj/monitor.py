@@ -6,13 +6,16 @@ from urllib.request import urlopen
 from dmoj import judgeenv
 from dmoj.judgeenv import get_problem_watches, startup_warnings
 from dmoj.utils.ansi import print_ansi
+from dmoj.utils.glob_ext import find_glob_root
 
 try:
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
+
+    has_watchdog_installed = True
 except ImportError:
     startup_warnings.append('watchdog module not found, install it to automatically update problems')
-    Observer = None
+    has_watchdog_installed = False
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +65,7 @@ class SendProblemsHandler(FileSystemEventHandler):
 
 class Monitor:
     def __init__(self):
-        if Observer is not None and not judgeenv.no_watchdog:
+        if has_watchdog_installed and not judgeenv.no_watchdog:
             if judgeenv.env.update_pings:
                 logger.info('Using thread to ping urls: %r', judgeenv.env.update_pings)
                 self._refresher = RefreshWorker(judgeenv.env.update_pings)
@@ -71,7 +74,8 @@ class Monitor:
 
             self._handler = SendProblemsHandler(self._refresher)
             self._monitor = Observer()
-            for dir in get_problem_watches():
+
+            for dir in set(map(find_glob_root, get_problem_watches())):
                 self._monitor.schedule(self._handler, dir, recursive=True)
                 logger.info('Scheduled for monitoring: %s', dir)
         else:

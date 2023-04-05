@@ -1,4 +1,4 @@
-from dmoj.executors.CPP03 import Executor as CPPExecutor
+from dmoj.executors.gcc_executor import CPPExecutor
 
 
 class Executor(CPPExecutor):
@@ -12,8 +12,10 @@ auto input() {
     return std::cin.rdbuf();
 }
 
+#if __cplusplus == 201402
 int main() {
     std::cout << input();
     return 0;
 }
+#endif
 """

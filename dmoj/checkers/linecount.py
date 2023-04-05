@@ -14,6 +14,3 @@ def check(
 ) -> CheckerResult:
     passed, feedback = _checker(utf8bytes(judge_output), utf8bytes(process_output))
     return CheckerResult(passed, point_value if passed else 0, extended_feedback=feedback.decode('utf-8'))
-
-
-check.run_on_error = True  # type: ignore

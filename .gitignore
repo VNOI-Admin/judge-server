@@ -49,6 +49,7 @@ nosetests.xml
 *.exp
 *.pdb
 .vscode
+.python-version
 
 # Vim
 [._]*.s[a-v][a-z]

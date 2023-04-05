@@ -1,20 +1,16 @@
-from typing import Optional
-
-from .gcc_executor import GCCExecutor
+from .gcc_executor import CPPExecutor
 
 
-class Executor(GCCExecutor):
+class Executor(CPPExecutor):
     command = 'g++'
-    std: Optional[str] = None
-    ext = 'cpp'
+    std = 'c++03'
     test_program = """
 #include <iostream>
 
+#if __cplusplus >= 199711 && __cplusplus < 201103
 int main() {
     std::cout << std::cin.rdbuf();
     return 0;
 }
+#endif
 """
-
-    def get_flags(self):
-        return (['-std=%s' % self.std] if self.std else []) + super().get_flags()

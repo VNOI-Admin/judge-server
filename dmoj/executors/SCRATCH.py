@@ -3,6 +3,7 @@ import shutil
 import subprocess
 
 from dmoj.cptbox import TracedPopen
+from dmoj.cptbox.filesystem_policies import ExactFile
 from dmoj.error import CompileError, InternalError
 from dmoj.executors.script_executor import ScriptExecutor
 from dmoj.result import Result
@@ -16,14 +17,7 @@ class Executor(ScriptExecutor):
     command = 'scratch-run'
     nproc = -1
     address_grace = 1048576
-    syscalls = [
-        'eventfd2',
-        'epoll_create1',
-        'epoll_ctl',
-        'epoll_wait',
-        'epoll_pwait',
-        'statx',
-    ]
+    syscalls = ['eventfd2', 'statx']
     check_time = 10  # 10 seconds
     check_memory = 262144  # 256MB of RAM
     test_program = """\
@@ -33,6 +27,9 @@ https://raw.githubusercontent.com/VNOI-Admin/judge-server/master/asset/scratch_t
     def __init__(self, problem_id, source_code, **kwargs):
         super().__init__(problem_id, source_code, **kwargs)
         self.meta = kwargs.get('meta', {})
+
+    def get_fs(self):
+        return super().get_fs() + [ExactFile('/etc/ssl/openssl.cnf'), ExactFile(self.runtime_dict['scratch-run'])]
 
     def validate_file(self, filename):
         # Based on PlatformExecutorMixin.launch

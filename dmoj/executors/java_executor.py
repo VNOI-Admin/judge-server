@@ -14,6 +14,7 @@ from dmoj.error import CompileError, InternalError
 from dmoj.executors.compiled_executor import CompiledExecutor
 from dmoj.executors.mixins import SingleDigitVersionMixin
 from dmoj.judgeenv import skip_self_test
+from dmoj.result import Result
 from dmoj.utils.unicode import utf8bytes, utf8text
 
 recomment = re.compile(r'/\*.*?\*/', re.DOTALL | re.U)
@@ -59,7 +60,6 @@ class JavaExecutor(SingleDigitVersionMixin, CompiledExecutor):
     fsize = 1048576  # Allow 1 MB for writing crash log.
     address_grace = 786432
     syscalls = [
-        'pread64',
         'clock_nanosleep',
         'socketpair',
         ('procctl', handle_procctl),
@@ -123,6 +123,7 @@ class JavaExecutor(SingleDigitVersionMixin, CompiledExecutor):
             '-Xss128m',
             f'-Xmx{kwargs["orig_memory"]}K',
             '-XX:+UseSerialGC',
+            '-XX:+DisplayVMOutputToStderr',  # print the failed VM initialization errors to stderr
             '-XX:ErrorFile=submission_jvm_crash.log',
             self._class_name or '',
         ]
@@ -130,6 +131,18 @@ class JavaExecutor(SingleDigitVersionMixin, CompiledExecutor):
     def launch(self, *args, **kwargs) -> TracedPopen:
         kwargs['orig_memory'], kwargs['memory'] = kwargs['memory'], 0
         return super().launch(*args, **kwargs)
+
+    def populate_result(self, stderr: bytes, result: Result, process: TracedPopen) -> None:
+        super().populate_result(stderr, result, process)
+        if process.is_ir:
+            failed_init_errors = [
+                b'Too small maximum heap',
+                b'Too small initial heap',
+                b'GC triggered before VM initialization completed',
+            ]
+            if any(error in stderr for error in failed_init_errors) or result.feedback == 'java.lang.OutOfMemoryError':
+                result.feedback = ''
+                result.result_flag |= Result.MLE
 
     def parse_feedback_from_stderr(self, stderr: bytes, process: TracedPopen) -> str:
         if process.returncode:

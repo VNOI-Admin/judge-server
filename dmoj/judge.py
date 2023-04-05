@@ -27,7 +27,7 @@ try:
     from setproctitle import setproctitle
 except ImportError:
 
-    def setproctitle(title):
+    def setproctitle(title: str) -> None:
         pass
 
 
@@ -205,7 +205,7 @@ class Judge:
         is_sc = result.result_flag & Result.SC
         colored_codes = ['#ansi[%s](%s|bold)' % ('--' if x == 'SC' else x, Result.COLORS_BYID[x]) for x in codes]
         colored_aux_codes = '{%s}' % ', '.join(colored_codes[1:]) if len(codes) > 1 else ''
-        colored_feedback = '(#ansi[%s](|underline)) ' % utf8text(result.feedback) if result.feedback else ''
+        colored_feedback = '(#ansi[%s](|underline)) ' % utf8text(result.feedback, 'replace') if result.feedback else ''
         if is_sc:
             case_info = ''
         else:
@@ -273,7 +273,7 @@ class Judge:
         if self.packet_manager:
             self.packet_manager.close()
 
-    def log_internal_error(self, exc: BaseException = None, message: str = None) -> None:
+    def log_internal_error(self, exc: Optional[BaseException] = None, message: Optional[str] = None) -> None:
         if not message:
             # If exc exists, raise it so that sys.exc_info() is populated with its data.
             if exc:
@@ -430,10 +430,6 @@ class JudgeWorker:
                 if ipc_recv_thread.is_alive():
                     logger.error('Judge IPC recv thread is still alive after timeout, shutting worker down anyway!')
 
-            # FIXME(tbrindus): we need to do this because cleaning up temporary directories happens on __del__, which
-            # won't get called if we exit the process right now (so we'd leak all files created by the grader). This
-            # should be refactored to have an explicit `cleanup()` or similar, rather than relying on refcounting
-            # working out.
             self.grader = None
 
     def _grade_cases(self) -> Generator[Tuple[IPC, tuple], None, None]:
@@ -454,7 +450,7 @@ class JudgeWorker:
             if hasattr(binary, 'warning') and binary.warning is not None:
                 yield IPC.COMPILE_MESSAGE, (binary.warning,)
 
-        yield IPC.GRADING_BEGIN, (self.grader.is_pretested,)
+        yield IPC.GRADING_BEGIN, (self.grader.run_pretests_only,)
 
         flattened_cases: List[Tuple[Optional[int], Union[TestCase, BatchedTestCase], int]] = []
         batch_number = 0
@@ -475,7 +471,7 @@ class JudgeWorker:
         case_number = 0
         is_short_circuiting = False
         is_short_circuiting_enabled = self.submission.short_circuit
-        judged_results: Dict[Tuple[str, str, int], Optional[Result]] = {}
+        judged_results: Dict[Tuple[str, str], Optional[Result]] = {}
         result: Optional[Result] = None
         passed_batches: Set[int] = set()
         for batch_number, cases in groupby(flattened_cases, key=itemgetter(0)):
@@ -493,18 +489,23 @@ class JudgeWorker:
                 if is_short_circuiting:
                     result = Result(case, result_flag=Result.SC)
                 else:
-                    # Just in case the `case` doesn't have the config
-                    if case.config['in'] and case.config['out']:
-                        case_key = (case.config['in'], case.config['out'], case.points)
-                        result = judged_results.get(case_key, None)
-                    else:
-                        result = None
+                    case_cache_key = (case.config['in'], case.config['out'])
+                    result = judged_results.get(case_cache_key, None)
 
                     if result is None:
                         result = self.grader.grade(case)
-                        if case.config['in'] and case.config['out']:
-                            case_key = (case.config['in'], case.config['out'], case.points)
-                            judged_results[case_key] = result
+                        # only cache on case has positive points
+                        if case.points != 0 and case_cache_key != (None, None):
+                            judged_results[case_cache_key] = result
+                    else:
+                        # TODO: this is a bit of a hack, but it's the best we can do for now
+
+                        # Cache hit, now we need to change the points of the result
+                        # new_points = new_case_points * old_points / old_case_points
+
+                        # result.case.points will always positive, since we only cache cases that have non-zero points
+                        result.points = case.points * result.points / result.case.points
+                        result.case = case
 
                     # If the submission was killed due to a user-initiated abort, any result is meaningless.
                     if self._abort_requested:
@@ -517,7 +518,7 @@ class JudgeWorker:
                 # Legacy hack: we need to allow graders to read and write `proc_output` on the `Result` object, but the
                 # judge controller only cares about the trimmed output, and shouldn't waste memory buffering the full
                 # output. So, we trim it here so we don't run out of memory in the controller.
-                result.proc_output = result.output
+                result.proc_output = utf8bytes(result.output)
                 yield IPC.RESULT, (batch_number, case_number, result)
 
             if batch_number:

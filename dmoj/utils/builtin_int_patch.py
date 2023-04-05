@@ -1,6 +1,8 @@
 # type: ignore
+import sys
 
-INT_MAX_NUMBER_DIGITS = 10000
+# Drop to Python's limit, see https://github.com/python/cpython/issues/95778
+INT_MAX_NUMBER_DIGITS = getattr(sys.int_info, 'default_max_str_digits', 4300)
 int_ = int
 
 if isinstance(__builtins__, dict):

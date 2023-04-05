@@ -21,13 +21,9 @@ void main() {
     address_grace = 128 * 1024
 
     syscalls = [
-        'epoll_create',
-        'epoll_create1',
-        'epoll_ctl',
-        'epoll_wait',
-        'epoll_pwait',
         'timerfd_settime',
         'memfd_create',
+        'msync',
         'ftruncate',
     ]
 

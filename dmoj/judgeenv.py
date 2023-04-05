@@ -1,7 +1,9 @@
 import argparse
+import glob
 import logging
 import os
 import ssl
+from fnmatch import fnmatch
 from operator import itemgetter
 from typing import Dict, List, Set
 
@@ -9,9 +11,10 @@ import yaml
 
 from dmoj.config import ConfigNode
 from dmoj.utils import pyyaml_patch  # noqa: F401, imported for side effect
+from dmoj.utils.ansi import print_ansi
 from dmoj.utils.unicode import utf8text
 
-problem_dirs = ()
+problem_globs = ()
 problem_watches = ()
 env = ConfigNode(
     defaults={
@@ -67,7 +70,7 @@ exclude_executors: Set[str] = set()
 
 
 def load_env(cli=False, testsuite=False):  # pragma: no cover
-    global problem_dirs, only_executors, exclude_executors, log_file, server_host, server_port, no_ansi, no_ansi_emu, skip_self_test, env, startup_warnings, no_watchdog, problem_regex, case_regex, api_listen, secure, no_cert_check, cert_store, problem_watches, cli_history_file, cli_command, log_level
+    global problem_globs, only_executors, exclude_executors, log_file, server_host, server_port, no_ansi, no_ansi_emu, skip_self_test, env, startup_warnings, no_watchdog, problem_regex, case_regex, api_listen, secure, no_cert_check, cert_store, problem_watches, cli_history_file, cli_command, log_level
 
     if cli:
         description = 'Starts a shell for interfacing with a local judge instance.'
@@ -166,56 +169,46 @@ def load_env(cli=False, testsuite=False):  # pragma: no cover
     is_docker = bool(os.getenv('DMOJ_IN_DOCKER'))
     if is_docker:
         if not cli:
-            api_listen = api_listen or ('0.0.0.0', 9998)
+            api_listen = api_listen or ('0.0.0.0', 15001)
 
         with open('/judge-runtime-paths.yml', 'rb') as runtimes_file:
             env.update(yaml.safe_load(runtimes_file))
 
-        problem_dirs = ['/problems']
+        problem_globs = ['/problems/**/']
 
     print(api_listen)
     model_file = os.path.expanduser(args.config)
     try:
         with open(model_file) as init_file:
             env.update(yaml.safe_load(init_file))
-
-            if getattr(args, 'judge_name', None):
-                env['id'] = args.judge_name
-
-            if getattr(args, 'judge_key', None):
-                env['key'] = args.judge_key
-
-            problem_dirs = env.problem_storage_root
-            if problem_dirs is None:
-                if not testsuite:
-                    raise SystemExit(
-                        'problem_storage_root not specified in "%s"; no problems available to grade' % model_file
-                    )
     except IOError:
         if not is_docker:
             raise
 
-    # Populate cache and send warnings
-    get_problem_roots(warnings=True)
+    if getattr(args, 'judge_name', None):
+        env['id'] = args.judge_name
+    elif 'DMOJ_JUDGE_NAME' in os.environ:
+        env['id'] = os.environ['DMOJ_JUDGE_NAME']
 
-    def get_path(x, y):
-        return utf8text(os.path.normpath(os.path.join(x, y)))
+    if getattr(args, 'judge_key', None):
+        env['key'] = args.judge_key
+    elif 'DMOJ_JUDGE_KEY' in os.environ:
+        env['key'] = os.environ['DMOJ_JUDGE_KEY']
 
-    if isinstance(problem_dirs, str):
-        problem_dirs = [problem_dirs]
+    if env.problem_storage_globs:
+        problem_globs = env.problem_storage_globs
+        # Populate cache and send warnings
+        get_problem_roots(warnings=True)
 
-    problem_watches = []
-    for dir in problem_dirs:
-        if isinstance(dir, ConfigNode):
-            for _, recursive_root in dir.iteritems():
-                problem_watches.append(get_path(_root, recursive_root))
-        else:
-            problem_watches.append(get_path(_root, dir))
+        problem_watches = problem_globs
+
+    if problem_globs is None and not testsuite:
+        raise SystemExit(f'`problem_storage_globs` not specified in "{model_file}"; no problems available to grade')
 
     if testsuite:
         if not os.path.isdir(args.tests_dir):
             raise SystemExit('Invalid tests directory')
-        problem_dirs = [args.tests_dir]
+        problem_globs = [os.path.join(args.tests_dir, '*')]
         clear_problem_dirs_cache()
 
         import re
@@ -240,8 +233,12 @@ def get_problem_root(problem_id):
     if cached_root is None or not os.path.isfile(os.path.join(cached_root, 'init.yml')):
         for root_dir in get_problem_roots():
             problem_root_dir = os.path.join(root_dir, problem_id)
-            problem_init = os.path.join(problem_root_dir, 'init.yml')
-            if os.path.isfile(problem_init):
+            problem_config = os.path.join(problem_root_dir, 'init.yml')
+            if os.path.isfile(problem_config):
+                if problem_globs and not any(
+                    fnmatch(problem_config, os.path.join(problem_glob, 'init.yml')) for problem_glob in problem_globs
+                ):
+                    continue
                 _problem_root_cache[problem_id] = problem_root_dir
                 break
 
@@ -257,43 +254,15 @@ def get_problem_roots(warnings=False):
     if _problem_dirs_cache is not None:
         return _problem_dirs_cache
 
-    def get_path(x, y):
-        return utf8text(os.path.normpath(os.path.join(x, y)))
-
-    if isinstance(problem_dirs, list):
-        _problem_dirs_cache = problem_dirs
-        return problem_dirs
-    elif isinstance(problem_dirs, ConfigNode):
-
-        def find_directories_by_depth(dir, depth):
-            if depth < 0:
-                raise ValueError('negative depth reached')
-            if not depth:
-                if os.path.isdir(dir):
-                    return [dir]
-                else:
-                    return []
-            ret = []
-            for child in os.listdir(dir):
-                next = os.path.join(dir, child)
-                if os.path.isdir(next):
-                    ret += find_directories_by_depth(next, depth - 1)
-            return ret
-
-        dirs = []
-        for dir in problem_dirs:
-            if isinstance(dir, ConfigNode):
-                for depth, recursive_root in dir.iteritems():
-                    try:
-                        dirs += find_directories_by_depth(get_path(_root, recursive_root), int(depth))
-                    except ValueError:
-                        startup_warnings.append('illegal depth argument %s' % depth)
-            else:
-                dirs.append(get_path(_root, dir))
-    else:
-        dirs = os.path.join(_root, problem_dirs)
-        dirs = [get_path(dirs, dir) for dir in os.listdir(dirs)]
-        dirs = [dir for dir in dirs if os.path.isdir(dir)]
+    dirs = []
+    dirs_set = set()
+    for dir_glob in problem_globs:
+        config_glob = os.path.join(dir_glob, 'init.yml')
+        root_dirs = {os.path.dirname(os.path.dirname(x)) for x in glob.iglob(config_glob, recursive=True)}
+        for root_dir in root_dirs:
+            if root_dir not in dirs_set:
+                dirs.append(root_dir)
+                dirs_set.add(root_dir)
 
     if warnings:
         cleaned_dirs = []
@@ -317,23 +286,34 @@ def get_problem_watches():
     return problem_watches
 
 
-def get_supported_problems_and_mtimes():
+def get_supported_problems_and_mtimes(warnings=True):
     """
     Fetches a list of all problems supported by this judge and their mtimes.
     :return:
         A list of all problems in tuple format: (problem id, mtime)
     """
     problems = []
-    for dir in get_problem_roots():
-        for problem in os.listdir(dir):
-            problem = utf8text(problem)
-            if os.access(os.path.join(dir, problem, 'init.yml'), os.R_OK):
-                problems.append((problem, os.path.getmtime(os.path.join(dir, problem))))
+    problem_dirs = {}
+    for dir_glob in problem_globs:
+        for problem_config in glob.iglob(os.path.join(dir_glob, 'init.yml'), recursive=True):
+            if os.access(problem_config, os.R_OK):
+                problem_dir = os.path.dirname(problem_config)
+                problem = utf8text(os.path.basename(problem_dir))
+
+                if problem in problem_dirs:
+                    if warnings:
+                        print_ansi(
+                            f'#ansi[Warning: duplicate problem {problem} found at {problem_dir},'
+                            f' ignoring in favour of {problem_dirs[problem]}](yellow)'
+                        )
+                else:
+                    problem_dirs[problem] = problem_dir
+                    problems.append((problem, os.path.getmtime(problem_dir)))
     return problems
 
 
-def get_supported_problems():
-    return map(itemgetter(0), get_supported_problems_and_mtimes())
+def get_supported_problems(warnings=True):
+    return map(itemgetter(0), get_supported_problems_and_mtimes(warnings=warnings))
 
 
 def get_runtime_versions():

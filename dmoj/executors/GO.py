@@ -1,6 +1,7 @@
 import os
 import re
 
+from dmoj.cptbox.filesystem_policies import ExactFile
 from dmoj.error import CompileError
 from dmoj.executors.compiled_executor import CompiledExecutor
 
@@ -19,7 +20,13 @@ class Executor(CompiledExecutor):
     data_grace = 98304  # Go uses data segment for heap arena map
     address_grace = 786432
     command = 'go'
-    syscalls = ['mincore', 'epoll_create1', 'epoll_ctl', 'epoll_pwait', 'pselect6', 'mlock']
+    syscalls = ['mincore', 'mlock', 'setrlimit']
+    compiler_syscalls = ['setrlimit']
+    fs = [
+        # Go will start without THP information, but has some tuning for when
+        # it is available -- so let's allow it to tell.
+        ExactFile('/sys/kernel/mm/transparent_hugepage/hpage_pmd_size'),
+    ]
     test_name = 'echo'
     test_program = """\
 package main
