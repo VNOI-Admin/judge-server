@@ -1,14 +1,15 @@
 from dmoj.error import CompileError
 from dmoj.executors.script_executor import ScriptExecutor
-from dmoj.utils.unicode import utf8bytes
+from dmoj.utils.unicode import utf8bytes, utf8text
+from dmoj.utils.helper_files import download_source_code
 
 import os
 import json
 import re
 import requests
 import time
-from zipfile import ZipFile
-
+from zipfile import ZipFile, BadZipFile
+from io import BytesIO
 
 class Executor(ScriptExecutor):
     ext = 'sb3'
@@ -62,7 +63,10 @@ class Executor(ScriptExecutor):
             raise CompileError(
                 'Chức năng nộp bài bằng link đã tắt. Các bạn hãy tải file sb3 và nộp bài bằng cách tải file lên từ máy.'
             )
-        self.create_files_from_json(source_code)
+        if source_code_str.endswith(".sb3"):
+            self.create_files_from_url(source_code)
+        else:
+            self.create_files_from_json(source_code)
 
     def create_files_from_json(self, source_code):
         if not self._home:
@@ -85,29 +89,11 @@ class Executor(ScriptExecutor):
         except KeyError:
             raise CompileError('Please use default sounds/images only')
 
-    def create_files_from_url(self, project_id):
-        project_url = 'https://projects.scratch.mit.edu/{project_id}'
-        asset_url = 'https://cdn.assets.scratch.mit.edu/internalapi/asset/{asset_id}.{data_format}/get'
+    def create_files_from_url(self, source_code):
+        zip_data = download_source_code(utf8text(source_code).strip(), 1)
+        try:
+            with open(self._code, "wb") as f:
+                f.write(zip_data)
+        except Exception as e:
+            raise CompileError(repr(e))
 
-        r = requests.get(project_url.format(project_id=project_id))
-        if r.status_code != 200:
-            raise CompileError('Cannot fetch project! Maybe due to invalid ID or internet problems.')
-
-        self.create_files_from_json(r.content)
-        # NOTE: Don't download from MIT (strict rate limiting)
-        # project_json = json.loads(r.content)
-
-        # sb3_file.writestr('project.json', r.content)
-
-        # self.dfs_json(project_json)
-
-        # for file in set(self.item_filename.values()):
-        #     time.sleep(0.1) # to pass MIT site rate limiter
-        #     parts = file.split('.')
-        #     r = requests.get(asset_url.format(
-        #             asset_id = parts[0],
-        #             data_format = parts[1]
-        #         ))
-        #     sb3_file.writestr(file, r.content)
-
-        # sb3_file.close()
