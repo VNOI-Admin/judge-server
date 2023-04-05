@@ -61,10 +61,10 @@ class Executor(ScriptExecutor):
             raise CompileError(
                 'Chức năng nộp bài bằng link đã tắt. Các bạn hãy tải file sb3 và nộp bài bằng cách tải file lên từ máy.'
             )
-        # if source_code_str.endswith(".sb3"):
-        #     self.create_files_from_url(source_code)
-        # else:
-        self.create_files_from_json(source_code)
+        if source_code_str.endswith(".sb3"):
+            self.create_files_from_url(source_code)
+        else:
+            self.create_files_from_json(source_code)
 
     def create_files_from_json(self, source_code):
         if not self._home:
