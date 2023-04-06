@@ -57,6 +57,7 @@ class SendProblemsHandler(FileSystemEventHandler):
         self.callback = None
 
     def on_any_event(self, event):
+        print("EVENT", event)
         if self.callback is not None:
             self.callback()
         if self.refresher is not None:
