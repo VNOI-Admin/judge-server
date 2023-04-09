@@ -52,12 +52,19 @@ class RefreshWorker(Thread):
 
 
 class SendProblemsHandler(FileSystemEventHandler):
+    ALLOWED_EVENT_TYPES = (
+        'modified',
+        'moved',
+        'created',
+        'deleted',
+    )
+
     def __init__(self, refresher=None):
         self.refresher = refresher
         self.callback = None
 
     def on_any_event(self, event):
-        if event.event_type not in ["modified", "moved", "created", "deleted"]:
+        if event.event_type not in self.ALLOWED_EVENT_TYPES:
             return
         if self.callback is not None:
             self.callback()
