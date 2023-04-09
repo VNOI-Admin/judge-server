@@ -57,7 +57,7 @@ class SendProblemsHandler(FileSystemEventHandler):
         self.callback = None
 
     def on_any_event(self, event):
-        if event.event_type == "opened":
+        if event.event_type not in ["modified", "moved", "created", "deleted"]:
             return
         if self.callback is not None:
             self.callback()
