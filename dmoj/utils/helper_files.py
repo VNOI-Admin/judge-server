@@ -119,8 +119,8 @@ def download_source_code(link, file_size_limit):
     # MB to bytes
     file_size_limit = file_size_limit * 1024 * 1024
 
-    r = requests.get(link, stream=True)
     try:
+        r = requests.get(link, stream=True)
         r.raise_for_status()
     except Exception as e:
         raise CompileError(repr(e))
