@@ -41,4 +41,4 @@ RUN mkdir /judge /problems && cd /judge && \
 	g++ -std=c++17 -Wall -DONLINE_JUDGE -DTHEMIS -O2 -fmax-errors=5 -march=native -s /usr/include/testlib_themis_cms.h && \
 	find /usr/include/ -name stdc++.h -exec g++ -std=c++17 -Wall -DONLINE_JUDGE -O2 -fmax-errors=5 -march=native -s {} \;
 
-ENTRYPOINT ["/judge/.docker/entry"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/judge/.docker/entry"]
