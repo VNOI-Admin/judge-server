@@ -10,7 +10,13 @@ from dmoj.utils.glob_ext import find_glob_root
 
 try:
     from watchdog.observers import Observer
-    from watchdog.events import FileSystemEventHandler
+    from watchdog.events import (
+        FileSystemEventHandler,
+        EVENT_TYPE_MOVED,
+        EVENT_TYPE_DELETED,
+        EVENT_TYPE_MODIFIED,
+        EVENT_TYPE_CREATED,
+    )
 
     has_watchdog_installed = True
 except ImportError:
@@ -53,10 +59,10 @@ class RefreshWorker(Thread):
 
 class SendProblemsHandler(FileSystemEventHandler):
     ALLOWED_EVENT_TYPES = (
-        'modified',
-        'moved',
-        'created',
-        'deleted',
+        EVENT_TYPE_MOVED,
+        EVENT_TYPE_DELETED,
+        EVENT_TYPE_MODIFIED,
+        EVENT_TYPE_CREATED,
     )
 
     def __init__(self, refresher=None):
