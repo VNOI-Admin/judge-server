@@ -55,11 +55,6 @@ class BaseGrader:
         test_cases = self._resolve_testcases(self.problem.config.test_cases)
         if pretest_test_cases:
             pretest_test_cases = self._resolve_testcases(pretest_test_cases)
-
-            # Hack: force short-circuiting behavior
-            for case in pretest_test_cases:
-                case.points = 0
-
             test_cases = pretest_test_cases + test_cases
 
         return test_cases
