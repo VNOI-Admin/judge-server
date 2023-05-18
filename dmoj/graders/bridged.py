@@ -43,8 +43,6 @@ class BridgedInteractiveGrader(StandardGrader):
         # We parse the return code first in case the grader crashed, so it can raise the IE.
         # Usually a grader crash will result in IR/RTE/TLE,
         # so checking submission return code first will cover up the grader fail.
-        assert self._interactor.stderr is not None
-        stderr = self._interactor.stderr.read()
         parsed_result = contrib_modules[self.contrib_type].ContribModule.parse_return_code(
             self._interactor,
             self.interactor_binary,
@@ -52,9 +50,9 @@ class BridgedInteractiveGrader(StandardGrader):
             self._interactor_time_limit,
             self._interactor_memory_limit,
             feedback='',
-            extended_feedback=utf8text(stderr, 'replace'),
+            extended_feedback=utf8text(self._interactor_stderr, 'replace'),
             name='interactor',
-            stderr=stderr,
+            stderr=self._interactor_stderr,
         )
 
         if result.result_flag:
@@ -67,11 +65,6 @@ class BridgedInteractiveGrader(StandardGrader):
         return parsed_result
 
     def _launch_process(self, case: TestCase) -> None:
-        # Take advantage of File IO to support log file (required by testlib).
-        # Collision is not a concern here because the log file, which is just a symlink to /dev/fd/4,
-        # is created inside a temporary directory.
-        self._interactor_log_file = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789_', k=8))
-
         self._interactor_stdin_pipe, submission_stdout_pipe = os.pipe()
         submission_stdin_pipe, self._interactor_stdout_pipe = os.pipe()
         self._current_proc = self.binary.launch(
@@ -82,7 +75,6 @@ class BridgedInteractiveGrader(StandardGrader):
             stdout=submission_stdout_pipe,
             stderr=subprocess.PIPE,
             wall_time=case.config.wall_time_factor * self.problem.time_limit,
-            file_io=ConfigNode({'output': self._interactor_log_file}),
         )
         os.close(submission_stdin_pipe)
         os.close(submission_stdout_pipe)
@@ -101,10 +93,15 @@ class BridgedInteractiveGrader(StandardGrader):
         )
 
         with mktemp(input) as input_file, mktemp(judge_output) as answer_file:
+            # Take advantage of File IO to support log file (required by testlib).
+            # Collision is not a concern here because the log file, which is just a symlink to /dev/fd/4,
+            # is created inside a temporary directory.
+            interactor_log_file = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789_', k=8))
+
             interactor_args = shlex.split(
                 args_format_string.format(
                     input_file=shlex.quote(input_file.name),
-                    output_file=shlex.quote(self._interactor_log_file),
+                    output_file=shlex.quote(interactor_log_file),
                     answer_file=shlex.quote(answer_file.name),
                 )
             )
@@ -115,12 +112,13 @@ class BridgedInteractiveGrader(StandardGrader):
                 stdin=self._interactor_stdin_pipe,
                 stdout=self._interactor_stdout_pipe,
                 stderr=subprocess.PIPE,
+                file_io=ConfigNode({'output': interactor_log_file}),
             )
 
             os.close(self._interactor_stdin_pipe)
             os.close(self._interactor_stdout_pipe)
 
-            result.proc_output, _ = self._interactor.communicate()
+            result.proc_output, self._interactor_stderr = self._interactor.communicate()
             self._current_proc.wait()
 
             return self._current_proc.stderr.read()
