@@ -1,4 +1,5 @@
 import os
+import random
 import shlex
 import subprocess
 from typing import TYPE_CHECKING
@@ -56,9 +57,21 @@ class BridgedInteractiveGrader(StandardGrader):
             stderr=stderr,
         )
 
-        return (not result.result_flag) and parsed_result
+        if result.result_flag:
+            return False
+
+        if parsed_result.passed and (case.config['checker'] or 'standard') != 'standard':
+            # Run the custom checker iff a custom checker is specified and the interactor returns a passed verdict.
+            return super().check_result(case, result)
+
+        return parsed_result
 
     def _launch_process(self, case: TestCase) -> None:
+        # Take advantage of File IO to support log file (required by testlib).
+        # Collision is not a concern here because the log file, which is just a symlink to /dev/fd/4,
+        # is created inside a temporary directory.
+        self._interactor_log_file = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789_', k=8))
+
         self._interactor_stdin_pipe, submission_stdout_pipe = os.pipe()
         submission_stdin_pipe, self._interactor_stdout_pipe = os.pipe()
         self._current_proc = self.binary.launch(
@@ -69,6 +82,7 @@ class BridgedInteractiveGrader(StandardGrader):
             stdout=submission_stdout_pipe,
             stderr=subprocess.PIPE,
             wall_time=case.config.wall_time_factor * self.problem.time_limit,
+            file_io=ConfigNode({'output': self._interactor_log_file}),
         )
         os.close(submission_stdin_pipe)
         os.close(submission_stdout_pipe)
@@ -87,14 +101,10 @@ class BridgedInteractiveGrader(StandardGrader):
         )
 
         with mktemp(input) as input_file, mktemp(judge_output) as answer_file:
-            # TODO(@kirito): testlib.h expects a file they can write to,
-            # but we currently don't have a sane way to allow this.
-            # Thus we pass /dev/null for now so testlib interactors will still
-            # work, albeit with diminished capabilities
             interactor_args = shlex.split(
                 args_format_string.format(
                     input_file=shlex.quote(input_file.name),
-                    output_file=shlex.quote(os.devnull),
+                    output_file=shlex.quote(self._interactor_log_file),
                     answer_file=shlex.quote(answer_file.name),
                 )
             )
@@ -110,8 +120,8 @@ class BridgedInteractiveGrader(StandardGrader):
             os.close(self._interactor_stdin_pipe)
             os.close(self._interactor_stdout_pipe)
 
+            result.proc_output, _ = self._interactor.communicate()
             self._current_proc.wait()
-            self._interactor.wait()
 
             return self._current_proc.stderr.read()
 
