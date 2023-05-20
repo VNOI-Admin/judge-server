@@ -53,8 +53,4 @@ class BaseGrader:
             return self._resolve_testcases(pretest_test_cases)
 
         test_cases = self._resolve_testcases(self.problem.config.test_cases)
-        if pretest_test_cases:
-            pretest_test_cases = self._resolve_testcases(pretest_test_cases)
-            test_cases = pretest_test_cases + test_cases
-
         return test_cases
