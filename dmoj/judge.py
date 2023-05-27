@@ -475,9 +475,9 @@ class JudgeWorker:
         result: Optional[Result] = None
         passed_batches: Set[int] = set()
         for batch_number, cases in groupby(flattened_cases, key=itemgetter(0)):
+            batch_failed = False
             if batch_number:
                 yield IPC.BATCH_BEGIN, (batch_number,)
-
                 dependencies = batch_dependencies[batch_number - 1]  # List is zero-indexed
                 if passed_batches & dependencies != dependencies:
                     is_short_circuiting = True
@@ -514,6 +514,7 @@ class JudgeWorker:
 
                     if result.result_flag & Result.WA:
                         is_short_circuiting |= not case.points
+                        batch_failed = True
 
                 # Legacy hack: we need to allow graders to read and write `proc_output` on the `Result` object, but the
                 # judge controller only cares about the trimmed output, and shouldn't waste memory buffering the full
@@ -522,7 +523,7 @@ class JudgeWorker:
                 yield IPC.RESULT, (batch_number, case_number, result)
 
             if batch_number:
-                if not is_short_circuiting:
+                if not batch_failed:
                     passed_batches.add(batch_number)
                 elif batch_points.get(batch_number, 0):
                     is_short_circuiting = False
