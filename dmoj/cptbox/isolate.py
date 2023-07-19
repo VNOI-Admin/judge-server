@@ -408,12 +408,13 @@ class IsolateTracer(dict):
             if not fs_jail.check(real):
                 raise DeniedSyscall(ACCESS_EACCES, f'Denying {file}, real path {real}')
 
-    def _fix_path_case(self, file: str, orig_path: str, debugger: Debugger, ptr: int) -> str:
+    def _fix_path_case(self, full_path: str, orig_path: str, debugger: Debugger, ptr: int) -> str:
         # Windows is case-insensitive, while Unix is case-sensitive.
         # This makes some checkers that were originally written for Windows fail to work on Unix.
         # If required, we fix the path here, so the checker would work normally.
+        normalized = '/' + os.path.normpath(full_path).lstrip('/')
         for dest in self._path_case_fixes:
-            if dest.lower() == file.lower():
+            if dest.lower() == normalized.lower():
                 # file and dest are absolute paths, but the original path passed to the syscall can be relative.
                 # Due to potential difference in length, it's not possible to overwrite the original path with dest.
                 # We need to read that original path and apply the fix on it.
@@ -421,20 +422,22 @@ class IsolateTracer(dict):
                 # We need to fix the path to "post.inp".
 
                 # To keep it simple, we'll only fix the base name.
-                orig_basename = os.path.basename(file)  # "PoSt.InP" for the example above
+                orig_basename = os.path.basename(normalized)  # "PoSt.InP" for the example above
                 basename = os.path.basename(dest)  # "post.inp" for the example above
                 assert len(orig_basename) == len(basename)
 
                 if not orig_path.endswith(orig_basename):
                     # Looks like directory traversal is involved.
                     # For simplicity and safety, we won't apply any fix here.
-                    return file
+                    return full_path
 
                 fixed_path = orig_path[: -len(orig_basename)] + basename
                 self.write_path(debugger, ptr, fixed_path)
-                return file[: -len(fixed_path)] + fixed_path
 
-        return file
+                assert full_path.endswith(orig_path)
+                return full_path[: -len(fixed_path)] + fixed_path
+
+        return full_path
 
     def get_full_path(self, debugger: Debugger, file: str, dirfd: int = AT_FDCWD) -> str:
         dirfd = (dirfd & 0x7FFFFFFF) - (dirfd & 0x80000000)
