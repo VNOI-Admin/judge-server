@@ -52,6 +52,7 @@ sys_bindat: int
 sys_bpf: int
 sys_break: int
 sys_brk: int
+sys_cachestat: int
 sys_cap_enter: int
 sys_cap_fcntls_get: int
 sys_cap_fcntls_limit: int
@@ -148,6 +149,7 @@ sys_fchdir: int
 sys_fchflags: int
 sys_fchmod: int
 sys_fchmodat: int
+sys_fchmodat2: int
 sys_fchown: int
 sys_fchown32: int
 sys_fchownat: int
@@ -301,6 +303,7 @@ sys_kmq_timedreceive: int
 sys_kmq_timedsend: int
 sys_kmq_unlink: int
 sys_kqueue: int
+sys_kqueuex: int
 sys_kse_create: int
 sys_kse_exit: int
 sys_kse_release: int
@@ -364,6 +367,7 @@ sys_mac_set_link: int
 sys_mac_set_proc: int
 sys_mac_syscall: int
 sys_madvise: int
+sys_map_shadow_stack: int
 sys_mbind: int
 sys_membarrier: int
 sys_memfd_create: int
