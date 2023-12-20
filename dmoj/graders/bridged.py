@@ -1,7 +1,9 @@
 import os
+import random
 import shlex
 import subprocess
 
+from dmoj.config import ConfigNode
 from dmoj.contrib import contrib_modules
 from dmoj.error import CompileError, InternalError
 from dmoj.graders.standard import StandardGrader
@@ -29,7 +31,6 @@ class BridgedInteractiveGrader(StandardGrader):
         # We parse the return code first in case the grader crashed, so it can raise the IE.
         # Usually a grader crash will result in IR/RTE/TLE,
         # so checking submission return code first will cover up the grader fail.
-        stderr = self._interactor.stderr.read()
         parsed_result = contrib_modules[self.contrib_type].ContribModule.parse_return_code(
             self._interactor,
             self.interactor_binary,
@@ -37,12 +38,19 @@ class BridgedInteractiveGrader(StandardGrader):
             self._interactor_time_limit,
             self._interactor_memory_limit,
             feedback='',
-            extended_feedback=utf8text(stderr, 'replace'),
+            extended_feedback=utf8text(self._interactor_stderr, 'replace'),
             name='interactor',
-            stderr=stderr,
+            stderr=self._interactor_stderr,
         )
 
-        return (not result.result_flag) and parsed_result
+        if result.result_flag:
+            return False
+
+        if parsed_result.passed and (case.config['checker'] or 'standard') != 'standard':
+            # Run the custom checker iff a custom checker is specified and the interactor returns a passed verdict.
+            return super().check_result(case, result)
+
+        return parsed_result
 
     def _launch_process(self, case):
         self._interactor_stdin_pipe, submission_stdout_pipe = os.pipe()
@@ -70,14 +78,15 @@ class BridgedInteractiveGrader(StandardGrader):
         )
 
         with mktemp(input) as input_file, mktemp(judge_output) as answer_file:
-            # TODO(@kirito): testlib.h expects a file they can write to,
-            # but we currently don't have a sane way to allow this.
-            # Thus we pass /dev/null for now so testlib interactors will still
-            # work, albeit with diminished capabilities
+            # Take advantage of File IO to support log file (required by testlib).
+            # Collision is not a concern here because the log file, which is just a symlink to /dev/fd/4,
+            # is created inside a temporary directory.
+            interactor_log_file = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789_', k=8))
+
             interactor_args = shlex.split(
                 args_format_string.format(
                     input_file=shlex.quote(input_file.name),
-                    output_file=shlex.quote(os.devnull),
+                    output_file=shlex.quote(interactor_log_file),
                     answer_file=shlex.quote(answer_file.name),
                 )
             )
@@ -88,13 +97,14 @@ class BridgedInteractiveGrader(StandardGrader):
                 stdin=self._interactor_stdin_pipe,
                 stdout=self._interactor_stdout_pipe,
                 stderr=subprocess.PIPE,
+                file_io=ConfigNode({'output': interactor_log_file}),
             )
 
             os.close(self._interactor_stdin_pipe)
             os.close(self._interactor_stdout_pipe)
 
+            result.proc_output, self._interactor_stderr = self._interactor.communicate()
             self._current_proc.wait()
-            self._interactor.wait()
 
             return self._current_proc.stderr.read()
 

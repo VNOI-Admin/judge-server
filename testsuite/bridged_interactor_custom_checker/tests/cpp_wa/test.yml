@@ -1,0 +1,11 @@
+language: CPP11
+time: 2
+memory: 65536
+source: seed2.cpp
+cases: [WA, WA, AC, WA, WA]
+extended_feedback_cases:
+  - "wrong answer interactor: too many guesses\n"
+  - "wrong answer interactor: too many guesses\n"
+  - "ok checker: ok\n"
+  - "wrong answer interactor: too many guesses\n"
+  - "wrong answer interactor: too many guesses\n"
