@@ -23,8 +23,18 @@ class ContribModule(DefaultContribModule):
     @classmethod
     @DefaultContribModule.catch_internal_error
     def parse_return_code(
-        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr,
-        treat_checker_points_as_percentage=None, **kwargs
+        cls,
+        proc,
+        executor,
+        point_value,
+        time_limit,
+        memory_limit,
+        feedback,
+        extended_feedback,
+        name,
+        stderr,
+        treat_checker_points_as_percentage=None,
+        **kwargs
     ):
         if proc.returncode == cls.AC:
             return CheckerResult(True, point_value, feedback=feedback, extended_feedback=extended_feedback)
@@ -45,8 +55,7 @@ class ContribModule(DefaultContribModule):
 
                 if not 0 <= points <= point_value:
                     raise InternalError(
-                        'Invalid partial points: %f, must be between [%f; %f]' %
-                        (points, 0, point_value)
+                        'Invalid partial points: %f, must be between [%f; %f]' % (points, 0, point_value)
                     )
 
             return CheckerResult(True, points, feedback=feedback, extended_feedback=extended_feedback)
