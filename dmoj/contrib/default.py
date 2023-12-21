@@ -36,7 +36,7 @@ class ContribModule:
 
     @classmethod
     def parse_return_code(
-        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr
+        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr, **kwargs
     ):
         if proc.returncode == cls.AC:
             return CheckerResult(True, point_value, feedback=feedback, extended_feedback=extended_feedback)

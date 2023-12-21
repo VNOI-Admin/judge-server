@@ -21,7 +21,7 @@ class ContribModule(DefaultContribModule):
     @classmethod
     @DefaultContribModule.catch_internal_error
     def parse_return_code(
-        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr
+        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr, **kwargs
     ):
         # Translate output of the checker in the extended_feedback to feedback
         translate_feedback = None

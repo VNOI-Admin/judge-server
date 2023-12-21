@@ -13,7 +13,7 @@ class ContribModule(DefaultContribModule):
     @classmethod
     @DefaultContribModule.catch_internal_error
     def parse_return_code(
-        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr
+        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr, **kwargs
     ):
         if proc.returncode in (cls.AC, cls.WA):
             # PEG allows for a ratio of floating points, and can give partials for AC or WA

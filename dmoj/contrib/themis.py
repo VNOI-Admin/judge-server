@@ -12,7 +12,7 @@ class ContribModule(DefaultContribModule):
     @classmethod
     @DefaultContribModule.catch_internal_error
     def parse_return_code(
-        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr
+        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr, **kwargs
     ):
         if proc.returncode != cls.AC:
             parse_helper_file_error(proc, executor, name, stderr, time_limit, memory_limit)
