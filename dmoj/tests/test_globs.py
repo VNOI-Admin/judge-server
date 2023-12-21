@@ -94,6 +94,5 @@ class TestConfigGlobs(unittest.TestCase):
             for problem in ex_cases:
                 self.assertRaises(KeyError, judgeenv.get_problem_root, problem)
 
-
     def tearDown(self):
         self.root.cleanup()
