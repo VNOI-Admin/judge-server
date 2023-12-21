@@ -195,21 +195,16 @@ def load_env(cli=False, testsuite=False):  # pragma: no cover
     elif 'DMOJ_JUDGE_KEY' in os.environ:
         env['key'] = os.environ['DMOJ_JUDGE_KEY']
 
-    if env.problem_storage_globs:
+    if not testsuite:
         problem_globs = env.problem_storage_globs
-        # Populate cache and send warnings
-        get_problem_roots(warnings=True)
+        if problem_globs is None:
+            raise SystemExit(f'`problem_storage_globs` not specified in "{model_file}"; no problems available to grade')
 
         problem_watches = problem_globs
-
-    if problem_globs is None and not testsuite:
-        raise SystemExit(f'`problem_storage_globs` not specified in "{model_file}"; no problems available to grade')
-
-    if testsuite:
+    else:
         if not os.path.isdir(args.tests_dir):
             raise SystemExit('Invalid tests directory')
         problem_globs = [os.path.join(args.tests_dir, '*')]
-        clear_problem_dirs_cache()
 
         import re
 
@@ -223,6 +218,13 @@ def load_env(cli=False, testsuite=False):  # pragma: no cover
                 case_regex = re.compile(args.case_regex)
             except re.error:
                 raise SystemExit('Invalid case regex')
+
+    # Populate cache and send warnings
+    get_supported_problems_and_mtimes()
+
+
+def get_problem_watches():
+    return problem_watches
 
 
 _problem_root_cache: Dict[str, str] = {}
@@ -245,60 +247,41 @@ def get_problem_root(problem_id):
     return _problem_root_cache[problem_id]
 
 
-_problem_dirs_cache = None
+_problem_roots_cache = None
 
 
-def get_problem_roots(warnings=False):
-    global _problem_dirs_cache
-
-    if _problem_dirs_cache is not None:
-        return _problem_dirs_cache
-
-    dirs = []
-    dirs_set = set()
-    for dir_glob in problem_globs:
-        config_glob = os.path.join(dir_glob, 'init.yml')
-        root_dirs = {os.path.dirname(os.path.dirname(x)) for x in glob.iglob(config_glob, recursive=True)}
-        for root_dir in root_dirs:
-            if root_dir not in dirs_set:
-                dirs.append(root_dir)
-                dirs_set.add(root_dir)
-
-    if warnings:
-        cleaned_dirs = []
-        for dir in dirs:
-            if not os.path.isdir(dir):
-                startup_warnings.append('cannot access problem directory %s (does it exist?)' % dir)
-                continue
-            cleaned_dirs.append(dir)
-    else:
-        cleaned_dirs = dirs
-    _problem_dirs_cache = cleaned_dirs
-    return cleaned_dirs
+def get_problem_roots():
+    global _problem_roots_cache
+    assert _problem_roots_cache is not None
+    return _problem_roots_cache
 
 
-def clear_problem_dirs_cache():
-    global _problem_dirs_cache
-    _problem_dirs_cache = None
+_supported_problems_cache = None
 
 
-def get_problem_watches():
-    return problem_watches
-
-
-def get_supported_problems_and_mtimes(warnings=True):
+def get_supported_problems_and_mtimes(warnings=True, force_update=False):
     """
     Fetches a list of all problems supported by this judge and their mtimes.
     :return:
         A list of all problems in tuple format: (problem id, mtime)
     """
+
+    global _problem_roots_cache
+    global _supported_problems_cache
+
+    if _supported_problems_cache is not None and not force_update:
+        return _supported_problems_cache
+
     problems = []
+    root_dirs = set()
     problem_dirs = {}
     for dir_glob in problem_globs:
         for problem_config in glob.iglob(os.path.join(dir_glob, 'init.yml'), recursive=True):
             if os.access(problem_config, os.R_OK):
                 problem_dir = os.path.dirname(problem_config)
                 problem = utf8text(os.path.basename(problem_dir))
+
+                root_dirs.add(os.path.dirname(problem_dir))
 
                 if problem in problem_dirs:
                     if warnings:
@@ -309,6 +292,10 @@ def get_supported_problems_and_mtimes(warnings=True):
                 else:
                     problem_dirs[problem] = problem_dir
                     problems.append((problem, os.path.getmtime(problem_dir)))
+
+    _problem_roots_cache = list(root_dirs)
+    _supported_problems_cache = problems
+
     return problems
 
 

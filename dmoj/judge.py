@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, Generator, List, NamedTuple, Optional, S
 from dmoj import packet
 from dmoj.control import JudgeControlRequestHandler
 from dmoj.error import CompileError
-from dmoj.judgeenv import clear_problem_dirs_cache, env, get_supported_problems_and_mtimes, startup_warnings
+from dmoj.judgeenv import env, get_supported_problems_and_mtimes, startup_warnings
 from dmoj.monitor import Monitor
 from dmoj.problem import BatchedTestCase, Problem, TestCase
 from dmoj.result import Result
@@ -99,8 +99,7 @@ class Judge:
             #    thread.join()
 
             try:
-                clear_problem_dirs_cache()
-                self.packet_manager.supported_problems_packet(get_supported_problems_and_mtimes())
+                self.packet_manager.supported_problems_packet(get_supported_problems_and_mtimes(force_update=True))
 
                 # When copying large test file, updater_signal can be set multiple times in very short burst
                 # (e.g. 10 times during 0.2s). Meanwhile, bridged can take up to 1 seconds to process updates.
