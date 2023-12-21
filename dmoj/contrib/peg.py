@@ -30,6 +30,7 @@ class ContribModule(BaseContribModule):
         name: str,
         stderr: bytes,
         show_feedback: bool = True,
+        **kwargs,
     ):
         if not show_feedback:
             feedback = ''

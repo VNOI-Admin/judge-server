@@ -6,6 +6,7 @@ from dmoj.error import InternalError
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.result import CheckerResult
 from dmoj.utils.helper_files import parse_helper_file_error
+from dmoj.utils.unicode import utf8text
 
 if TYPE_CHECKING:
     from dmoj.cptbox import TracedPopen
@@ -43,6 +44,8 @@ class ContribModule(DefaultContribModule):
         name: str,
         stderr: bytes,
         show_feedback: bool = True,
+        treat_checker_points_as_percentage: bool = False,
+        **kwargs,
     ):
         if proc.returncode == cls.IE:
             raise InternalError('%s failed assertion with message %s %s' % (name, feedback, extended_feedback))
@@ -57,9 +60,24 @@ class ContribModule(DefaultContribModule):
             match = cls.repartial.search(stderr)
             if not match:
                 raise InternalError('Invalid stderr for partial points: %r' % stderr)
-            points = float(match.group(1))
-            if not 0 <= points <= point_value:
-                raise InternalError('Invalid partial points: %f, must be between [%f; %f]' % (points, 0, point_value))
+
+            if treat_checker_points_as_percentage:
+                percentage = float(match.group(1))
+
+                if not 0 <= percentage <= 100:
+                    raise InternalError(
+                        'Invalid point percentage: %s, must be between [0; 100]' % utf8text(match.group(1))
+                    )
+
+                points = percentage * point_value / 100
+            else:
+                points = float(match.group(1))
+
+                if not 0 <= points <= point_value:
+                    raise InternalError(
+                        'Invalid partial points: %f, must be between [%f; %f]' % (points, 0, point_value)
+                    )
+
             return CheckerResult(True, points, feedback=feedback, extended_feedback=extended_feedback)
         elif proc.returncode == cls.WA:
             return CheckerResult(False, 0, feedback=feedback, extended_feedback=extended_feedback)
