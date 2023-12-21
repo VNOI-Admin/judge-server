@@ -41,6 +41,7 @@ def check(
     point_value=None,
     input_name=None,
     output_name=None,
+    treat_checker_points_as_percentage=False,
     **kwargs,
 ) -> CheckerResult:
 
@@ -144,4 +145,5 @@ def check(
             name='checker',
             stderr=error,
             show_feedback=feedback,
+            treat_checker_points_as_percentage=treat_checker_points_as_percentage,
         )
