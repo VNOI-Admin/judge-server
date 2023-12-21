@@ -273,7 +273,8 @@ def get_supported_problems_and_mtimes(warnings=True, force_update=False):
         return _supported_problems_cache
 
     problems = []
-    root_dirs = set()
+    root_dirs = []
+    root_dirs_set = set()
     problem_dirs = {}
     for dir_glob in problem_globs:
         for problem_config in glob.iglob(os.path.join(dir_glob, 'init.yml'), recursive=True):
@@ -281,7 +282,10 @@ def get_supported_problems_and_mtimes(warnings=True, force_update=False):
                 problem_dir = os.path.dirname(problem_config)
                 problem = utf8text(os.path.basename(problem_dir))
 
-                root_dirs.add(os.path.dirname(problem_dir))
+                root_dir = os.path.dirname(problem_dir)
+                if root_dir not in root_dirs_set:
+                    root_dirs.append(root_dir)
+                    root_dirs_set.add(root_dir)
 
                 if problem in problem_dirs:
                     if warnings:
@@ -293,7 +297,7 @@ def get_supported_problems_and_mtimes(warnings=True, force_update=False):
                     problem_dirs[problem] = problem_dir
                     problems.append((problem, os.path.getmtime(problem_dir)))
 
-    _problem_roots_cache = list(root_dirs)
+    _problem_roots_cache = root_dirs
     _supported_problems_cache = problems
 
     return problems
