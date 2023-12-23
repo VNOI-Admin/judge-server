@@ -284,6 +284,7 @@ def get_supported_problems_and_mtimes(warnings=True, force_update=False):
 
                 root_dir = os.path.dirname(problem_dir)
                 if root_dir not in root_dirs_set:
+                    # earlier-listed problem root takes priority
                     root_dirs.append(root_dir)
                     root_dirs_set.add(root_dir)
 
