@@ -43,17 +43,22 @@ def safe_communicate(
     if proc.stdin and input:
         register_and_append(proc.stdin, select.POLLOUT)
 
+    stdout_fileno = -1
+    stderr_fileno = -1
+
     select_POLLIN_POLLPRI = select.POLLIN | select.POLLPRI
     if proc.stdout:
         register_and_append(proc.stdout, select_POLLIN_POLLPRI)
-        fd2output[proc.stdout.fileno()] = stdout_list = []
-        fd2length[proc.stdout.fileno()] = 0
-        fd2limit[proc.stdout.fileno()] = outlimit
+        stdout_fileno = proc.stdout.fileno()
+        fd2output[stdout_fileno] = stdout_list = []
+        fd2length[stdout_fileno] = 0
+        fd2limit[stdout_fileno] = outlimit
     if proc.stderr:
         register_and_append(proc.stderr, select_POLLIN_POLLPRI)
-        fd2output[proc.stderr.fileno()] = stderr_list = []
-        fd2length[proc.stderr.fileno()] = 0
-        fd2limit[proc.stderr.fileno()] = errlimit
+        stderr_fileno = proc.stderr.fileno()
+        fd2output[stderr_fileno] = stderr_list = []
+        fd2length[stderr_fileno] = 0
+        fd2limit[stderr_fileno] = errlimit
 
     input_offset = 0
     while fd2file:
@@ -87,7 +92,7 @@ def safe_communicate(
                 if fd2length[fd] > fd2limit[fd]:
                     proc.mark_ole()
                     raise OutputLimitExceeded(
-                        'stdout' if proc.stdout is not None and proc.stdout.fileno() == fd else 'stderr',
+                        'stdout' if fd == stdout_fileno else 'stderr' if fd == stderr_fileno else 'unknown',
                         fd2limit[fd],
                         b''.join(fd2output[fd])[:1024],
                     )
