@@ -92,6 +92,7 @@ jobs:
 
           mkdir -p /usr/lib/fpc/
           cp asset/Windows.pas /usr/lib/fpc/
+          fpc -Fe/dev/stderr -O2 /usr/lib/fpc/Windows.pas
 
           /code/.docker/download_testlib_and_precompile
 

@@ -23,7 +23,6 @@ end.
     flags: List[str] = []
 
     def get_compile_args(self) -> List[str]:
-        print('aaaaaa', self.flags)
         command = self.get_command()
         assert command is not None
         assert self._code is not None
