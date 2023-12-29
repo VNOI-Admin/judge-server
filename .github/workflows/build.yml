@@ -90,6 +90,9 @@ jobs:
           unzip scratch-run.zip
           mv scratch-run /usr/bin/scratch-run
 
+          mkdir -p /usr/lib/fpc/
+          cp asset/Windows.pas /usr/lib/fpc/
+
           /code/.docker/download_testlib_and_precompile
 
           runuser -u judge -w PATH /code/run-su

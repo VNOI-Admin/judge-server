@@ -43,7 +43,6 @@ class CompilerIsolateTracer(IsolateTracer):
                 sys_unlinkat: self.handle_file_access_at(FilesystemSyscallKind.WRITE, dir_reg=0, file_reg=1),
                 sys_symlink: self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=1),
                 # Miscellaneous other filesystem system calls
-                sys_chdir: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_chmod: self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=0),
                 sys_utimensat: self.do_utimensat,
                 sys_umask: ALLOW,

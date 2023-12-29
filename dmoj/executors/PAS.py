@@ -20,12 +20,14 @@ begin
     writeln(line);
 end.
 """
+    flags: List[str] = []
 
     def get_compile_args(self) -> List[str]:
+        print('aaaaaa', self.flags)
         command = self.get_command()
         assert command is not None
         assert self._code is not None
-        return [command, '-Fe/dev/stderr', '-O2', self._code]
+        return [command, '-Fe/dev/stderr', '-O2', *self.flags, self._code]
 
     def get_compile_output(self, process: TracedPopen) -> bytes:
         output = super().get_compile_output(process)

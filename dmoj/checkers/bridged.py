@@ -44,7 +44,9 @@ def check(
 ) -> CheckerResult:
 
     flags = flags or []
-    if type == 'themis':
+    if lang == 'PAS':
+        flags.append('-Fu/usr/lib/fpc')
+    elif type == 'themis':
         # Actually it should be `defines` instead of `flags`
         # but using `defines` requires more changes
         flags.append('-DTHEMIS')
