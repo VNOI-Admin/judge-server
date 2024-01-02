@@ -11,4 +11,4 @@ class Executor(PASExecutor):
         command = self.get_command()
         assert command is not None
         assert self._code is not None
-        return [command, '-Fe/dev/stderr', '-dTHEMIS', '-O2', '-XS', '-Sg', '-Cs66060288', self._code]
+        return [command, '-Fe/dev/stderr', '-dTHEMIS', '-O2', '-XS', '-Sg', '-Cs66060288', *self.flags, self._code]
