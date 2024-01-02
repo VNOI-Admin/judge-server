@@ -74,6 +74,7 @@ class IsolateTracer(dict):
                 sys_access: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_readlink: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_readlinkat: self.handle_file_access_at(FilesystemSyscallKind.READ, dir_reg=0, file_reg=1),
+                sys_chdir: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_stat: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_stat64: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_lstat: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
