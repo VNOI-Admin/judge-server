@@ -1,10 +1,11 @@
 import os
 import shutil
 import subprocess
-from typing import List
+from typing import Any, List, Tuple, Union
 
 from dmoj.cptbox import TracedPopen
 from dmoj.cptbox.filesystem_policies import ExactFile, FilesystemAccessRule
+from dmoj.cptbox.handlers import ALLOW, ACCESS_ENOSYS
 from dmoj.error import CompileError, InternalError
 from dmoj.executors.script_executor import ScriptExecutor
 from dmoj.result import Result
@@ -18,7 +19,6 @@ class Executor(ScriptExecutor):
     command = 'scratch-run'
     nproc = -1
     address_grace = 1048576
-    syscalls = ['eventfd2', 'statx']
     check_time = 10  # 10 seconds
     check_memory = 262144  # 256MB of RAM
     test_program = """\
@@ -29,8 +29,22 @@ https://raw.githubusercontent.com/VNOI-Admin/judge-server/master/asset/scratch_t
         super().__init__(problem_id, source_code, **kwargs)
         self.meta = kwargs.get('meta', {})
 
+    def get_cmdline(self, **kwargs) -> List[str]:
+        command = self.get_command()
+        assert command is not None
+        return [command, self._code, '--buffer-stdout']
+
     def get_fs(self) -> List[FilesystemAccessRule]:
         return super().get_fs() + [ExactFile('/etc/ssl/openssl.cnf'), ExactFile(self.runtime_dict['scratch-run'])]
+
+    def get_allowed_syscalls(self) -> List[Union[str, Tuple[str, Any]]]:
+        return [
+            ('capget', ALLOW),
+            ('eventfd2', ALLOW),
+            ('statx', ALLOW),
+            ('pkey_alloc', ACCESS_ENOSYS),
+            ('io_uring_setup', ACCESS_ENOSYS)
+        ]
 
     def validate_file(self, filename: str) -> None:
         # Based on BaseExecutor.launch
