@@ -31,6 +31,7 @@ env: ConfigNode = ConfigNode(
         'compiler_output_character_limit': 65536,  # Number of characters allowed in compile output
         'compiled_binary_cache_dir': None,  # Location to store cached binaries, defaults to tempdir
         'compiled_binary_cache_size': 100,  # Maximum number of executables to cache (LRU order)
+        'test_size_limit': 262144,  # Maximum allowable test size, 256mb
         'runtime': {},
         # Map of executor: fs_config, used to configure
         # the filesystem sandbox on a per-machine basis, without having to hack
