@@ -31,6 +31,7 @@ from dmoj import checkers
 from dmoj.checkers import Checker
 from dmoj.config import ConfigNode, InvalidInitException
 from dmoj.cptbox.utils import MemoryIO, MmapableIO
+from dmoj.error import InternalError
 from dmoj.judgeenv import env, get_problem_root
 from dmoj.utils.helper_files import compile_with_auxiliary_files, parse_helper_file_error
 from dmoj.utils.module import load_module_from_file
@@ -81,6 +82,9 @@ class Problem:
         self.config = ProblemConfig(self.problem_data, meta)
 
         self.problem_data.archive = self._resolve_archive_files()
+
+        if self.config.test_size_limit:
+            self.problem_data.test_size_limit = self.config.test_size_limit
 
         if not self._resolve_test_cases():
             raise InvalidInitException('No test cases? What am I judging?')
@@ -269,6 +273,7 @@ class ProblemDataManager(dict):
         super().__init__(**kwargs)
         self.problem_root_dir = problem_root_dir
         self.archive = None
+        self.test_size_limit = env.test_size_limit
 
     def open(self, key: str):
         try:
@@ -276,6 +281,8 @@ class ProblemDataManager(dict):
         except IOError:
             if self.archive:
                 zipinfo = self.archive.getinfo(key)
+                if zipinfo.file_size > self.test_size_limit * 1024:
+                    raise InternalError('test file is too large: %s' % key)
                 return self.archive.open(zipinfo)
             raise KeyError('file "%s" could not be found in "%s"' % (key, self.problem_root_dir))
 

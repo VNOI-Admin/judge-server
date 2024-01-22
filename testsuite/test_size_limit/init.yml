@@ -1,0 +1,4 @@
+archive: bomb.zip
+test_size_limit: 65536
+test_cases:
+- { in: 01.inp, out: 01.out }

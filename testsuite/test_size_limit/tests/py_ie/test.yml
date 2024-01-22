@@ -1,0 +1,6 @@
+language: PY3
+time: 1
+memory: 65536
+source: ie.py
+expect: IE
+feedback: 'test file is too large: 01.inp'
