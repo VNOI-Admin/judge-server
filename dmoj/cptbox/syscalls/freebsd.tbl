@@ -134,6 +134,7 @@
 136	mkdir
 137	rmdir
 138	utimes
+139	sigreturn
 140	adjtime
 141	getpeername
 142	gethostid
@@ -512,3 +513,8 @@
 580	fspacectl
 581	sched_getcpu
 582	swapoff
+583	kqueuex
+584	membarrier
+585	timerfd_create
+586	timerfd_gettime
+587	timerfd_settime

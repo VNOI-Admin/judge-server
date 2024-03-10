@@ -22,10 +22,6 @@ RUN mkdir /judge /problems && cd /judge && \
 	HOME=~judge . ~judge/.profile && \
 	runuser -u judge -w PATH -- /env/bin/dmoj-autoconf -V > /judge-runtime-paths.yml && \
 	echo '  crt_x86_in_lib32: true' >> /judge-runtime-paths.yml && \
-	curl -L https://raw.githubusercontent.com/VNOI-Admin/testlib/master/testlib.h -o /usr/include/testlib.h && \
-	g++ -std=c++17 -Wall -DONLINE_JUDGE -O2 -fmax-errors=5 -march=native -s /usr/include/testlib.h && \
-	curl -L https://raw.githubusercontent.com/skyvn97/testlib/customized-testlib/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h && \
-	g++ -std=c++17 -Wall -DONLINE_JUDGE -DTHEMIS -O2 -fmax-errors=5 -march=native -s /usr/include/testlib_themis_cms.h && \
-	find /usr/include/ -name stdc++.h -exec g++ -std=c++17 -Wall -DONLINE_JUDGE -O2 -fmax-errors=5 -march=native -s {} \;
+	/judge/.docker/download_testlib_and_precompile
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/judge/.docker/entry"]
