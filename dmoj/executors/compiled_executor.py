@@ -35,12 +35,14 @@ class _CompiledExecutorMeta(ExecutorMeta):
         # Finish running all constructors before compiling.
         obj: 'CompiledExecutor' = super().__call__(*args, **kwargs)
         obj.is_cached = is_cached
+        tmpdir = env.tempdir or tempfile.gettempdir()
+
         # Before writing sources to disk, check if we have this executor in our cache.
         if is_cached:
             cache_key_material = utf8bytes(obj.__class__.__name__ + obj.__module__) + obj.get_binary_cache_key()
             cache_key = hashlib.sha384(cache_key_material).hexdigest()
 
-            cache_file_path = os.path.join(tempfile.gettempdir(), cache_key + '.txt')
+            cache_file_path = os.path.join(tmpdir, cache_key + '.txt')
             if os.path.isfile(cache_file_path):
                 executor = open(cache_file_path).read().strip().split('\n')
                 assert len(executor) == 2
@@ -54,7 +56,7 @@ class _CompiledExecutorMeta(ExecutorMeta):
         obj.compile()
 
         if is_cached:
-            cache_file_path = os.path.join(tempfile.gettempdir(), cache_key + '.txt')
+            cache_file_path = os.path.join(tmpdir, cache_key + '.txt')
             open(cache_file_path, 'w').write('\n'.join([str(obj._executable), str(obj._dir)]))
 
         return obj

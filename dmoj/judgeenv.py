@@ -3,6 +3,8 @@ import glob
 import logging
 import os
 import ssl
+import tempfile
+import hashlib
 from fnmatch import fnmatch
 from operator import itemgetter
 from typing import Dict, List, Set
@@ -12,7 +14,7 @@ import yaml
 from dmoj.config import ConfigNode
 from dmoj.utils import pyyaml_patch  # noqa: F401, imported for side effect
 from dmoj.utils.ansi import print_ansi
-from dmoj.utils.unicode import utf8text
+from dmoj.utils.unicode import utf8text, utf8bytes
 
 problem_globs = ()
 problem_watches = ()
@@ -176,7 +178,6 @@ def load_env(cli=False, testsuite=False):  # pragma: no cover
 
         problem_globs = ['/problems/**/']
 
-    print(api_listen)
     model_file = os.path.expanduser(args.config)
     try:
         with open(model_file) as init_file:
@@ -189,6 +190,11 @@ def load_env(cli=False, testsuite=False):  # pragma: no cover
         env['id'] = args.judge_name
     elif 'DMOJ_JUDGE_NAME' in os.environ:
         env['id'] = os.environ['DMOJ_JUDGE_NAME']
+
+    if not is_docker:
+        folder_name = hashlib.sha384(utf8bytes(env['id'])).hexdigest()
+        env['tempdir'] = os.path.join(tempfile.gettempdir(), folder_name) 
+        os.makedirs(env['tempdir'], exist_ok=True)
 
     if getattr(args, 'judge_key', None):
         env['key'] = args.judge_key
