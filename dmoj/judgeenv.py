@@ -196,7 +196,7 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
     elif 'DMOJ_JUDGE_NAME' in os.environ:
         env['id'] = os.environ['DMOJ_JUDGE_NAME']
 
-    if not is_docker:
+    if not is_docker and not cli and not testsuite:
         folder_name = hashlib.sha384(utf8bytes(env['id'])).hexdigest()
         env['tempdir'] = os.path.join(tempfile.gettempdir(), folder_name)
         os.makedirs(env['tempdir'], exist_ok=True)
