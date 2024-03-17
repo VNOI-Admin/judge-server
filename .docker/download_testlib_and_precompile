@@ -13,16 +13,17 @@ sed -i '/^#include <cstdio>/a#include <cstdint>' /usr/include/testlib_themis_cms
 mkdir -p /usr/include/testlib_themis_cms.h.gch
 g++ -std=c++17 $FLAGS -DTHEMIS /usr/include/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h.gch/themis
 g++ -std=c++17 $FLAGS -DCMS    /usr/include/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h.gch/cms
+g++ -std=c++17 $FLAGS          /usr/include/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h.gch/testlib
 
 # Precompile bits/stdc++.h
 IFS=$'\n' files=( $(find /usr/include/ -name stdc++.h) );
 for item in "${files[@]}"; {
   GCH_DIR="$item".gch
   mkdir -p $GCH_DIR
-  g++ -std=c++03 $FLAGS -o $GCH_DIR/cpp03 $item
-  g++ -std=c++11 $FLAGS -o $GCH_DIR/cpp11 $item
-  g++ -std=c++14 $FLAGS -o $GCH_DIR/cpp14 $item
-  g++ -std=c++17 $FLAGS -o $GCH_DIR/cpp17 $item
-  g++ -std=c++20 $FLAGS -o $GCH_DIR/cpp20 $item
-  g++ -std=c++14 -pipe -O2 -s -static -DTHEMIS -o $GCH_DIR/cppthemis $item
+  eval "g++ -std=c++03 $FLAGS -o $GCH_DIR/cpp03 $item"
+  eval "g++ -std=c++11 $FLAGS -o $GCH_DIR/cpp11 $item"
+  eval "g++ -std=c++14 $FLAGS -o $GCH_DIR/cpp14 $item"
+  eval "g++ -std=c++17 $FLAGS -o $GCH_DIR/cpp17 $item"
+  eval "g++ -std=c++20 $FLAGS -o $GCH_DIR/cpp20 $item"
+  eval "g++ -std=c++14 -pipe -O2 -s -static -DTHEMIS -o $GCH_DIR/cppthemis $item"
 }

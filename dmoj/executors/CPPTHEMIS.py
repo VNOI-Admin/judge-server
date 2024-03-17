@@ -1,12 +1,12 @@
 from typing import List
 
-from dmoj.executors.gcc_executor import GCCExecutor
+from dmoj.executors.c_like_executor import CPPExecutor, GCCMixin
 
 
-class Executor(GCCExecutor):
+class Executor(GCCMixin, CPPExecutor):
     command = 'g++-themis'
     command_paths = ['g++-8', 'g++']
-    ext = 'cpp'
+    std = 'c++14'
     test_program = """
 #include <iostream>
 

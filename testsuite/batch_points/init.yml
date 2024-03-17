@@ -1,0 +1,10 @@
+points: 1
+test_cases:
+  - batched:
+    - {out: b.out, point: 1}
+    - {out: a.out, point: 1}
+    points: 1
+  - batched:
+    - {out: b.out, point: 1}
+    - {out: a.out, point: 1}
+    points: 1

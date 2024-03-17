@@ -1,0 +1,6 @@
+language: PY3
+required_auxiliary_executors: [RUST]
+time: 2
+memory: 65536
+source: sol.py
+expect: AC

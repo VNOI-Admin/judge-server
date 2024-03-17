@@ -1,3 +1,5 @@
+from typing import List
+
 from dmoj.cptbox.filesystem_policies import RecursiveDir
 from dmoj.executors.compiled_executor import CompiledExecutor
 from dmoj.executors.mixins import NullStdoutMixin
@@ -11,6 +13,7 @@ class Executor(NullStdoutMixin, CompiledExecutor):
         RecursiveDir('/var/lib/ghc'),
     ]
     syscalls = ['timerfd_settime']
+    nproc = -1
 
     test_program = """\
 main = do
@@ -18,5 +21,8 @@ main = do
     putStr a
 """
 
-    def get_compile_args(self):
-        return [self.get_command(), '-O2', '-o', self.problem, self._code]
+    def get_compile_args(self) -> List[str]:
+        command = self.get_command()
+        assert command is not None
+        assert self._code is not None
+        return [command, '-O2', '-o', self.problem, self._code]

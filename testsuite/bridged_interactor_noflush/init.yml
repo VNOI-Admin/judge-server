@@ -1,6 +1,9 @@
 unbuffered: true
 archive: seed2_abridged.zip
-interactive: {files: interactor.cpp, type: testlib}
+interactive:
+  files: interactor.cpp
+  lang: CPP17
+  type: testlib
 test_cases:
 - {in: seed2.1.in, points: 20}
 - {in: seed2.2.in, points: 20}

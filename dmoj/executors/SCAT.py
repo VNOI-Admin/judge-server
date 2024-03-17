@@ -1,13 +1,12 @@
+import json
+import os
+import re
+from zipfile import ZipFile
+
 from dmoj.error import CompileError
 from dmoj.executors.script_executor import ScriptExecutor
-from dmoj.utils.unicode import utf8bytes, utf8text
 from dmoj.utils.helper_files import download_source_code
-
-import os
-import json
-import re
-from zipfile import ZipFile, BadZipFile
-from io import BytesIO
+from dmoj.utils.unicode import utf8bytes, utf8text
 
 
 class Executor(ScriptExecutor):
@@ -62,7 +61,7 @@ class Executor(ScriptExecutor):
             raise CompileError(
                 'Chức năng nộp bài bằng link đã tắt. Các bạn hãy tải file sb3 và nộp bài bằng cách tải file lên từ máy.'
             )
-        if source_code_str.endswith(".sb3"):
+        if source_code_str.endswith('.sb3'):
             self.create_files_from_url(source_code)
         else:
             self.create_files_from_json(source_code)
@@ -91,7 +90,7 @@ class Executor(ScriptExecutor):
     def create_files_from_url(self, source_code):
         zip_data = download_source_code(utf8text(source_code).strip(), 1)
         try:
-            with open(self._code, "wb") as f:
+            with open(self._code, 'wb') as f:
                 f.write(zip_data)
         except Exception as e:
             raise CompileError(repr(e))

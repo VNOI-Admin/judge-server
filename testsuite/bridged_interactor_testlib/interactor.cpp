@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
     }
     guesses++;
     if (guesses > 31)
-      quitf(_wa, "Too muny guesses %d", guesses);
+      quitf(_wa, "Too many guesses %d", guesses);
   }
   if (guesses <= 31)
     quitf(_ok, "ok %d guesses", guesses);

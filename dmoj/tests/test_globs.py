@@ -71,8 +71,11 @@ class TestConfigGlobs(unittest.TestCase):
 
         self.mock_problem_roots = mock.patch.object(judgeenv, 'problem_globs', problem_globs)
 
-    def test_problem_roots(self):
+    def test_supported_problems(self):
         with self.mock_problem_roots:
+            supported_problems = judgeenv.get_supported_problems(warnings=False)
+            self.assertEqual(list(sorted(self.supported_problems)), list(sorted(supported_problems)))
+
             problem_roots = judgeenv.get_problem_roots()
             self.assertEqual(list(sorted(self.problem_roots)), list(sorted(problem_roots)))
 
@@ -89,12 +92,7 @@ class TestConfigGlobs(unittest.TestCase):
             ex_cases = ['p2', 'p3', 'doesnotexist']
 
             for problem in ex_cases:
-                self.assertRaises(KeyError, judgeenv.get_problem_root, problem)
-
-    def test_supported_problems(self):
-        with self.mock_problem_roots:
-            supported_problems = judgeenv.get_supported_problems(warnings=False)
-            self.assertEqual(list(sorted(self.supported_problems)), list(sorted(supported_problems)))
+                self.assertIsNone(judgeenv.get_problem_root(problem))
 
     def tearDown(self):
         self.root.cleanup()

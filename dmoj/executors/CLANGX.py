@@ -1,7 +1,22 @@
-from dmoj.executors.CPP14 import Executor as CPP14Executor
-from dmoj.executors.clang_executor import ClangExecutor
+from dmoj.executors.c_like_executor import CLANG_VERSIONS, CPPExecutor, ClangMixin
 
 
-class Executor(ClangExecutor, CPP14Executor):
+class Executor(ClangMixin, CPPExecutor):
     command = 'clang++'
-    command_paths = ['clang++-%s' % i for i in ['3.9', '3.8', '3.7', '3.6', '3.5']] + ['clang++']
+    std = 'c++14'
+    command_paths = [f'clang++-{i}' for i in CLANG_VERSIONS] + ['clang++']
+
+    test_program = """
+#include <iostream>
+
+auto input() {
+    return std::cin.rdbuf();
+}
+
+#if __cplusplus == 201402
+int main() {
+    std::cout << input();
+    return 0;
+}
+#endif
+"""

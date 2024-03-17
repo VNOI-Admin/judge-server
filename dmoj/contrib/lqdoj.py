@@ -37,7 +37,7 @@ class ContribModule(DefaultContribModule):
                 raise InternalError('Invalid stderr for partial points: %r' % stderr)
             points = float(match.group(0))
             if not 0 <= points <= 1:
-                raise InternalError("Invalid partial points: %d" % points)
+                raise InternalError('Invalid partial points: %d' % points)
 
             ac = points == 1
             return CheckerResult(ac, points * point_value, feedback=feedback, extended_feedback=extended_feedback)

@@ -57,15 +57,17 @@ The judge can also grade in the languages listed below:
 
 * Ada
 * AWK
+* Brain\*\*\*\*
 * COBOL
 * D
 * Dart
-* Fortran
 * Forth
+* Fortran
 * Go
 * Groovy
 * Haskell
 * INTERCAL
+* JavaScript (Node.js and V8)
 * Kotlin
 * Lean 4
 * LLVM IR
@@ -88,7 +90,6 @@ The judge can also grade in the languages listed below:
 * Tcl
 * Turing
 * V8 JavaScript
-* Brain\*\*\*\*
 * Zig
 
 ## Installation

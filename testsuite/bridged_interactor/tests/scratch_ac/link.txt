@@ -1,0 +1,1 @@
+https://github.com/VNOI-Admin/judge-server/raw/master/testsuite/bridged_interactor/tests/scratch_ac/seed2.sb3

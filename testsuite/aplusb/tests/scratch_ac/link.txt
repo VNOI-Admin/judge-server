@@ -1,0 +1,1 @@
+https://github.com/VNOI-Admin/judge-server/raw/master/testsuite/aplusb/tests/scratch_ac/aplusb.sb3

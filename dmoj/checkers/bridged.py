@@ -39,11 +39,14 @@ def check(
     point_value=None,
     input_name=None,
     output_name=None,
+    treat_checker_points_as_percentage=False,
     **kwargs,
 ) -> CheckerResult:
 
     flags = flags or []
-    if type == 'themis':
+    if lang == 'PAS':
+        flags.append('-Fu/usr/lib/fpc')
+    elif type == 'themis':
         # Actually it should be `defines` instead of `flags`
         # but using `defines` requires more changes
         flags.append('-DTHEMIS')
@@ -132,4 +135,5 @@ def check(
             extended_feedback=utf8text(error, 'replace') if feedback else '',
             name='checker',
             stderr=error,
+            treat_checker_points_as_percentage=treat_checker_points_as_percentage,
         )

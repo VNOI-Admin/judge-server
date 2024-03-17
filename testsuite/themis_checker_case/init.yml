@@ -1,7 +1,0 @@
-checker:
-  name: bridged
-  args:
-    files: checker.cpp
-    type: themis
-test_cases:
-- {in: post.inp, out: post.out, points: 1}

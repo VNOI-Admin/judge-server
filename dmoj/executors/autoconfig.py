@@ -9,6 +9,7 @@ import yaml.representer
 
 from dmoj import judgeenv
 from dmoj.executors import get_available, load_executor
+from dmoj.executors.compiled_executor import CompiledExecutor
 from dmoj.executors.mixins import NullStdoutMixin
 from dmoj.utils.ansi import print_ansi
 
@@ -36,14 +37,14 @@ def main():
             continue
 
         Executor = executor.Executor
-        if not args.verbose and not issubclass(Executor, NullStdoutMixin):
+        if not args.verbose and not issubclass(Executor, NullStdoutMixin) and issubclass(Executor, CompiledExecutor):
             # if you are printing errors into stdout, you may do so in your own blood
             # *cough* Racket *cough*
             Executor = type('Executor', (NullStdoutMixin, Executor), {})
 
         if hasattr(Executor, 'autoconfig'):
             if not args.silent:
-                print_ansi('%-43s%s' % ('Auto-configuring #ansi[%s](|underline):' % name, ''), end=' ', file=sys.stderr)
+                print_ansi(f'Auto-configuring #ansi[{name}](|underline):'.ljust(43), end=' ', file=sys.stderr)
                 sys.stdout.flush()
 
             try:
@@ -59,8 +60,9 @@ def main():
             else:
                 if not args.silent:
                     print_ansi(
-                        ['#ansi[%s](red|bold)', '#ansi[%s](green|bold)'][success]
-                        % (feedback or ['Failed', 'Success'][success]),
+                        f'#ansi[{feedback or "Success"}](green|bold)'
+                        if success
+                        else f'#ansi[{feedback or "Failed"}](red|bold)',
                         file=sys.stderr,
                     )
 
@@ -95,9 +97,7 @@ def main():
     else:
         print_ansi('#ansi[No runtimes configured.](red|bold)', file=sys.__stderr__)
         if not args.verbose:
-            print_ansi(
-                'Run #ansi[%s -V](|underline) to see why this is the case.' % (parser.prog,), file=sys.__stderr__
-            )
+            print_ansi(f'Run #ansi[{parser.prog} -V](|underline) to see why this is the case.', file=sys.__stderr__)
 
     print(yaml.safe_dump({'runtime': result}, default_flow_style=False).rstrip())
 

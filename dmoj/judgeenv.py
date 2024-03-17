@@ -1,35 +1,39 @@
 import argparse
 import glob
+import hashlib
 import logging
 import os
 import ssl
 import tempfile
-import hashlib
 from fnmatch import fnmatch
 from operator import itemgetter
-from typing import Dict, List, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import yaml
 
 from dmoj.config import ConfigNode
 from dmoj.utils import pyyaml_patch  # noqa: F401, imported for side effect
 from dmoj.utils.ansi import print_ansi
-from dmoj.utils.unicode import utf8text, utf8bytes
+from dmoj.utils.unicode import utf8bytes, utf8text
 
-problem_globs = ()
-problem_watches = ()
-env = ConfigNode(
+problem_globs: List[str] = []
+problem_watches: List[str] = []
+env: ConfigNode = ConfigNode(
     defaults={
         'selftest_time_limit': 60,  # 60 seconds
         'selftest_memory_limit': 131072,  # 128mb of RAM
         'generator_compiler_time_limit': 30,  # 30 seconds
         'generator_time_limit': 20,  # 20 seconds
         'generator_memory_limit': 524288,  # 512mb of RAM
-        'compiler_time_limit': 60,  # Kill compiler after 60 seconds
+        'validator_compiler_time_limit': 30,  # 30 seconds
+        'validator_time_limit': 20,  # 20 seconds
+        'validator_memory_limit': 524288,  # 512mb of RAM
+        'compiler_time_limit': 10,  # Kill compiler after 10 seconds
         'compiler_size_limit': 131072,  # Maximum allowable compiled file size, 128mb
         'compiler_output_character_limit': 65536,  # Number of characters allowed in compile output
         'compiled_binary_cache_dir': None,  # Location to store cached binaries, defaults to tempdir
         'compiled_binary_cache_size': 100,  # Maximum number of executables to cache (LRU order)
+        'test_size_limit': 262144,  # Maximum allowable test size, 256mb
         'runtime': {},
         # Map of executor: fs_config, used to configure
         # the filesystem sandbox on a per-machine basis, without having to hack
@@ -57,11 +61,12 @@ env = ConfigNode(
     },
     dynamic=False,
 )
-_root = os.path.dirname(__file__)
+_root: str = os.path.dirname(__file__)
 
 log_file = server_host = server_port = no_ansi = skip_self_test = no_watchdog = problem_regex = case_regex = None
 cli_history_file = cert_store = api_listen = None
-secure = no_cert_check = False
+secure: bool = False
+no_cert_check: bool = False
 log_level = logging.DEBUG
 
 startup_warnings: List[str] = []
@@ -71,7 +76,7 @@ only_executors: Set[str] = set()
 exclude_executors: Set[str] = set()
 
 
-def load_env(cli=False, testsuite=False):  # pragma: no cover
+def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no cover
     global problem_globs, only_executors, exclude_executors, log_file, server_host, server_port, no_ansi, no_ansi_emu, skip_self_test, env, startup_warnings, no_watchdog, problem_regex, case_regex, api_listen, secure, no_cert_check, cert_store, problem_watches, cli_history_file, cli_command, log_level
 
     if cli:
@@ -201,21 +206,16 @@ def load_env(cli=False, testsuite=False):  # pragma: no cover
     elif 'DMOJ_JUDGE_KEY' in os.environ:
         env['key'] = os.environ['DMOJ_JUDGE_KEY']
 
-    if env.problem_storage_globs:
+    if not testsuite:
         problem_globs = env.problem_storage_globs
-        # Populate cache and send warnings
-        get_problem_roots(warnings=True)
+        if problem_globs is None:
+            raise SystemExit(f'`problem_storage_globs` not specified in "{model_file}"; no problems available to grade')
 
         problem_watches = problem_globs
-
-    if problem_globs is None and not testsuite:
-        raise SystemExit(f'`problem_storage_globs` not specified in "{model_file}"; no problems available to grade')
-
-    if testsuite:
+    else:
         if not os.path.isdir(args.tests_dir):
             raise SystemExit('Invalid tests directory')
         problem_globs = [os.path.join(args.tests_dir, '*')]
-        clear_problem_dirs_cache()
 
         import re
 
@@ -230,11 +230,18 @@ def load_env(cli=False, testsuite=False):  # pragma: no cover
             except re.error:
                 raise SystemExit('Invalid case regex')
 
+    # Populate cache and send warnings
+    get_supported_problems_and_mtimes()
+
+
+def get_problem_watches():
+    return problem_watches
+
 
 _problem_root_cache: Dict[str, str] = {}
 
 
-def get_problem_root(problem_id):
+def get_problem_root(problem_id) -> Optional[str]:
     cached_root = _problem_root_cache.get(problem_id)
     if cached_root is None or not os.path.isfile(os.path.join(cached_root, 'init.yml')):
         for root_dir in get_problem_roots():
@@ -247,64 +254,52 @@ def get_problem_root(problem_id):
                     continue
                 _problem_root_cache[problem_id] = problem_root_dir
                 break
+        else:
+            return None
 
     return _problem_root_cache[problem_id]
 
 
-_problem_dirs_cache = None
+_problem_roots_cache: Optional[List[str]] = None
 
 
-def get_problem_roots(warnings=False):
-    global _problem_dirs_cache
-
-    if _problem_dirs_cache is not None:
-        return _problem_dirs_cache
-
-    dirs = []
-    dirs_set = set()
-    for dir_glob in problem_globs:
-        config_glob = os.path.join(dir_glob, 'init.yml')
-        root_dirs = {os.path.dirname(os.path.dirname(x)) for x in glob.iglob(config_glob, recursive=True)}
-        for root_dir in root_dirs:
-            if root_dir not in dirs_set:
-                dirs.append(root_dir)
-                dirs_set.add(root_dir)
-
-    if warnings:
-        cleaned_dirs = []
-        for dir in dirs:
-            if not os.path.isdir(dir):
-                startup_warnings.append('cannot access problem directory %s (does it exist?)' % dir)
-                continue
-            cleaned_dirs.append(dir)
-    else:
-        cleaned_dirs = dirs
-    _problem_dirs_cache = cleaned_dirs
-    return cleaned_dirs
+def get_problem_roots() -> List[str]:
+    global _problem_roots_cache
+    assert _problem_roots_cache is not None
+    return _problem_roots_cache
 
 
-def clear_problem_dirs_cache():
-    global _problem_dirs_cache
-    _problem_dirs_cache = None
+_supported_problems_cache = None
 
 
-def get_problem_watches():
-    return problem_watches
-
-
-def get_supported_problems_and_mtimes(warnings=True):
+def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool = False) -> List[Tuple[str, float]]:
     """
     Fetches a list of all problems supported by this judge and their mtimes.
     :return:
         A list of all problems in tuple format: (problem id, mtime)
     """
+
+    global _problem_roots_cache
+    global _supported_problems_cache
+
+    if _supported_problems_cache is not None and not force_update:
+        return _supported_problems_cache
+
     problems = []
-    problem_dirs = {}
+    root_dirs = []
+    root_dirs_set = set()
+    problem_dirs: Dict[str, str] = {}
     for dir_glob in problem_globs:
         for problem_config in glob.iglob(os.path.join(dir_glob, 'init.yml'), recursive=True):
             if os.access(problem_config, os.R_OK):
                 problem_dir = os.path.dirname(problem_config)
                 problem = utf8text(os.path.basename(problem_dir))
+
+                root_dir = os.path.dirname(problem_dir)
+                if root_dir not in root_dirs_set:
+                    # earlier-listed problem root takes priority
+                    root_dirs.append(root_dir)
+                    root_dirs_set.add(root_dir)
 
                 if problem in problem_dirs:
                     if warnings:
@@ -315,10 +310,14 @@ def get_supported_problems_and_mtimes(warnings=True):
                 else:
                     problem_dirs[problem] = problem_dir
                     problems.append((problem, os.path.getmtime(problem_dir)))
+
+    _problem_roots_cache = root_dirs
+    _supported_problems_cache = problems
+
     return problems
 
 
-def get_supported_problems(warnings=True):
+def get_supported_problems(warnings: bool = True) -> Iterable[str]:
     return map(itemgetter(0), get_supported_problems_and_mtimes(warnings=warnings))
 
 

@@ -1,27 +1,26 @@
 import time
 from io import BytesIO
+from typing import TYPE_CHECKING
 from zipfile import BadZipFile, ZipFile
 
 from dmoj.error import CompileError
 from dmoj.graders.standard import StandardGrader
+from dmoj.problem import Problem, TestCase
 from dmoj.result import CheckerResult, Result
 from dmoj.utils.helper_files import FunctionTimeout, download_source_code
 from dmoj.utils.unicode import utf8text
 
+if TYPE_CHECKING:
+    from dmoj.judge import JudgeWorker
+
 
 class OutputOnlyGrader(StandardGrader):
-    def __init__(self, judge, problem, language, source):
+    def __init__(self, judge: 'JudgeWorker', problem: Problem, language: str, source: bytes) -> None:
         super().__init__(judge, problem, language, source)
         if language == 'OUTPUT':
             self.zip_file = self.get_zip_file()
 
-    def _generate_binary(self):
-        if self.language != 'OUTPUT':
-            return super()._generate_binary()
-
-        return None
-
-    def _interact_with_zipfile(self, result, case):
+    def _interact_with_zipfile(self, result: Result, case: TestCase) -> None:
         output_name = case.config['out']
 
         try:
@@ -38,14 +37,14 @@ class OutputOnlyGrader(StandardGrader):
 
         result.proc_output = self.zip_file.open(output_name).read()
 
-    def get_zip_file(self):
+    def get_zip_file(self) -> ZipFile:
         zip_data = download_source_code(utf8text(self.source).strip(), self.problem.meta.get('file-size-limit', 1))
         try:
             return ZipFile(BytesIO(zip_data))
         except BadZipFile as e:
             raise CompileError(repr(e))
 
-    def grade(self, case):
+    def grade(self, case: TestCase) -> Result:
         if self.language != 'OUTPUT':
             return super().grade(case)
 

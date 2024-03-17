@@ -2,8 +2,17 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from dmoj.cptbox import NATIVE_ABI, PTBOX_ABI_ARM, PTBOX_ABI_ARM64, PTBOX_ABI_X64, PTBOX_ABI_X86, can_debug
+from dmoj.cptbox import (
+    NATIVE_ABI,
+    PTBOX_ABI_ARM,
+    PTBOX_ABI_ARM64,
+    PTBOX_ABI_INVALID,
+    PTBOX_ABI_X64,
+    PTBOX_ABI_X86,
+    can_debug,
+)
 from dmoj.cptbox.filesystem_policies import ExactFile, FilesystemAccessRule, RecursiveDir
+from dmoj.executors.base_executor import AutoConfigOutput, VersionFlags
 from dmoj.executors.compiled_executor import CompiledExecutor
 from dmoj.judgeenv import env, skip_self_test
 from dmoj.utils.unicode import utf8bytes, utf8text
@@ -120,7 +129,7 @@ class ASMExecutor(CompiledExecutor):
         return [(runtime, cls.runtime_dict[runtime]) for runtime in (cls.as_name, cls.ld_name)]
 
     @classmethod
-    def autoconfig(cls) -> Tuple[Optional[Dict[str, Any]], bool, str, str]:
+    def autoconfig(cls) -> AutoConfigOutput:
         if not can_debug(cls.abi):
             return {}, False, 'Unable to natively debug', ''
         return super().autoconfig()
@@ -161,7 +170,7 @@ class NASMExecutor(ASMExecutor):
         return [self.get_as_path(), '-f', self.nasm_format, self._code, '-o', obj_file]
 
     @classmethod
-    def get_version_flags(cls, command: str) -> List[str]:
+    def get_version_flags(cls, command: str) -> List[VersionFlags]:
         return ['-version'] if command == cls.as_name else super().get_version_flags(command)
 
     @classmethod
@@ -226,7 +235,11 @@ class PlatformARM64Mixin(ASMExecutor):
     crt_post = env.runtime.crt_post_arm or ['/usr/lib/aarch64-linux-gnu/crtn.o']
 
 
+class UnknownPlatformMixin(ASMExecutor):
+    abi = PTBOX_ABI_INVALID
+
+
 NativeMixin: Any = (
     [cls for cls in (PlatformX86Mixin, PlatformX64Mixin, PlatformARMMixin, PlatformARM64Mixin) if cls.abi == NATIVE_ABI]
-    or [ASMExecutor]
+    or [UnknownPlatformMixin]
 )[0]

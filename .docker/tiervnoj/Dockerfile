@@ -1,4 +1,4 @@
-FROM dmoj/runtimes-tier1
+FROM vnoj/runtimes-tier1
 
 ARG TAG=master
 
@@ -47,6 +47,7 @@ RUN mkdir /judge /problems && cd /judge && \
 	HOME=~judge . ~judge/.profile && \
 	runuser -u judge -w PATH -- /env/bin/dmoj-autoconf -V > /judge-runtime-paths.yml && \
 	echo '  crt_x86_in_lib32: true' >> /judge-runtime-paths.yml && \
+	mkdir -p /usr/lib/fpc/ && cp /judge/asset/Windows.pas /usr/lib/fpc/ && fpc -Fe/dev/stderr -O2 /usr/lib/fpc/Windows.pas && \
 	/judge/.docker/download_testlib_and_precompile
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/judge/.docker/entry"]

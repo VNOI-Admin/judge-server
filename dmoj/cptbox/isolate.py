@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 from enum import Enum
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, List, Mapping, Sequence
 
 from dmoj.cptbox._cptbox import AT_FDCWD, Debugger, bsd_get_proc_cwd, bsd_get_proc_fdno
 from dmoj.cptbox.filesystem_policies import FilesystemAccessRule, FilesystemPolicy
@@ -45,8 +45,8 @@ class IsolateTracer(dict):
     def __init__(
         self,
         *,
-        read_fs: Sequence[FilesystemAccessRule],
-        write_fs: Sequence[FilesystemAccessRule],
+        read_fs: List[FilesystemAccessRule],
+        write_fs: List[FilesystemAccessRule],
         path_case_fixes=None,
         path_whitelist=None,
     ):
@@ -74,6 +74,7 @@ class IsolateTracer(dict):
                 sys_access: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_readlink: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_readlinkat: self.handle_file_access_at(FilesystemSyscallKind.READ, dir_reg=0, file_reg=1),
+                sys_chdir: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_stat: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_stat64: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
                 sys_lstat: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
@@ -463,9 +464,17 @@ class IsolateTracer(dict):
         PR_GET_DUMPABLE = 3
         PR_SET_NAME = 15
         PR_GET_NAME = 16
+        PR_CAPBSET_READ = 23
         PR_SET_THP_DISABLE = 41
         PR_SET_VMA = 0x53564D41  # Used on Android
-        if debugger.arg0 not in (PR_GET_DUMPABLE, PR_SET_NAME, PR_GET_NAME, PR_SET_THP_DISABLE, PR_SET_VMA):
+        if debugger.arg0 not in (
+            PR_GET_DUMPABLE,
+            PR_SET_NAME,
+            PR_GET_NAME,
+            PR_CAPBSET_READ,
+            PR_SET_THP_DISABLE,
+            PR_SET_VMA,
+        ):
             raise DeniedSyscall(protection_fault, f'Non-whitelisted prctl option: {debugger.arg0}')
 
     # ignore typing because of overload checks
