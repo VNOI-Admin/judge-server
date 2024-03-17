@@ -193,7 +193,7 @@ def load_env(cli=False, testsuite=False):  # pragma: no cover
 
     if not is_docker:
         folder_name = hashlib.sha384(utf8bytes(env['id'])).hexdigest()
-        env['tempdir'] = os.path.join(tempfile.gettempdir(), folder_name) 
+        env['tempdir'] = os.path.join(tempfile.gettempdir(), folder_name)
         os.makedirs(env['tempdir'], exist_ok=True)
 
     if getattr(args, 'judge_key', None):

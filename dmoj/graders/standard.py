@@ -15,9 +15,22 @@ class StandardGrader(BaseGrader):
 
         input = case.input_data()  # cache generator data
 
-        self._launch_process(case)
+        # If a case execution time is close to time limit and TLE'd,
+        # retry it upto 3 times
+        time_limit = case.problem.time_limit
+        execution_time_upper = time_limit + 0.5
+        retry_count = 3
+        while retry_count > 0:
+            self._launch_process(case)
+            error = self._interact_with_process(case, result, input)
+            process = self._current_proc
 
-        error = self._interact_with_process(case, result, input)
+            if process.is_tle and process.execution_time < execution_time_upper:
+                process.kill()
+                log.info('Retry TLE %.3fs (within 0.5s of time limit %.3fs)', process.execution_time, time_limit)
+                retry_count -= 1
+            else:
+                break
 
         process = self._current_proc
 

@@ -9,6 +9,7 @@ import re
 from zipfile import ZipFile, BadZipFile
 from io import BytesIO
 
+
 class Executor(ScriptExecutor):
     ext = 'sb3'
     name = 'SCAT'
@@ -94,4 +95,3 @@ class Executor(ScriptExecutor):
                 f.write(zip_data)
         except Exception as e:
             raise CompileError(repr(e))
-
