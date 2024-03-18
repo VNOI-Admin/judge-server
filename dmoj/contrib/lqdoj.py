@@ -2,6 +2,7 @@ import re
 
 from dmoj.contrib.default import ContribModule as DefaultContribModule
 from dmoj.error import InternalError
+from dmoj.executors.base_executor import BaseExecutor
 from dmoj.result import CheckerResult
 from dmoj.utils.helper_files import parse_helper_file_error
 
@@ -27,7 +28,18 @@ class ContribModule(DefaultContribModule):
     @classmethod
     @DefaultContribModule.catch_internal_error
     def parse_return_code(
-        cls, proc, executor, point_value, time_limit, memory_limit, feedback, extended_feedback, name, stderr
+        cls,
+        proc: 'TracedPopen',
+        executor: BaseExecutor,
+        point_value: float,
+        time_limit: float,
+        memory_limit: int,
+        feedback: str,
+        extended_feedback: str,
+        name: str,
+        stderr: bytes,
+        treat_checker_points_as_percentage: bool = False,
+        **kwargs,
     ):
         if proc.returncode == cls.AC:
             return CheckerResult(True, point_value, feedback=feedback, extended_feedback=extended_feedback)

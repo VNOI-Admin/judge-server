@@ -1,0 +1,6 @@
+language: PY3
+time: 2
+memory: 65536
+source: wa.py
+expect: WA
+score: 0
