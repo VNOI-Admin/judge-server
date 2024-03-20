@@ -250,17 +250,7 @@ class Problem:
         if self.run_pretests_only and pretest_test_cases:
             return self._resolve_testcases(pretest_test_cases)
 
-        test_cases = self._resolve_testcases(self.config.test_cases)
-        if pretest_test_cases:
-            pretest_test_cases = self._resolve_testcases(pretest_test_cases)
-
-            # Hack: force short-circuiting behavior
-            for case in pretest_test_cases:
-                case.points = 0
-
-            test_cases = pretest_test_cases + test_cases
-
-        return test_cases
+        return self._resolve_testcases(self.config.test_cases)
 
 
 class ProblemDataManager(dict):
