@@ -1,0 +1,4 @@
+output_only: true
+fize_size_limit: 32
+test_cases:
+- {in: 1.in, out: 1.out, output_limit_length: 1048576}

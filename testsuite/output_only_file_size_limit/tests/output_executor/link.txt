@@ -1,0 +1,1 @@
+https://raw.githubusercontent.com/VNOI-Admin/judge-server/master/testsuite/output_only/tests/output_executor/output.zip

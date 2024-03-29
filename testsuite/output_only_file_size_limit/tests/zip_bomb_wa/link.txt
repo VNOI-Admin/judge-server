@@ -1,0 +1,1 @@
+https://raw.githubusercontent.com/LQDJudge/judge-server/master/testsuite/output_only/tests/zip_bomb_ce/zipbomb_ce.zip

@@ -38,7 +38,8 @@ class OutputOnlyGrader(StandardGrader):
         result.proc_output = self.zip_file.open(output_name).read()
 
     def get_zip_file(self) -> ZipFile:
-        zip_data = download_source_code(utf8text(self.source).strip(), self.problem.meta.get('file-size-limit', 1))
+        fize_size_limit = self.problem.config.fize_size_limit or 1
+        zip_data = download_source_code(utf8text(self.source).strip(), fize_size_limit)
         try:
             return ZipFile(BytesIO(zip_data))
         except BadZipFile as e:
