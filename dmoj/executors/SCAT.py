@@ -88,7 +88,7 @@ class Executor(ScriptExecutor):
             raise CompileError('Please use default sounds/images only')
 
     def create_files_from_url(self, source_code):
-        fize_size_limit = self.problem.config.fize_size_limit or 1
+        fize_size_limit = 1
         zip_data = download_source_code(utf8text(self.source).strip(), fize_size_limit)
         try:
             with open(self._code, 'wb') as f:
