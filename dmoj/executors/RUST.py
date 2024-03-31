@@ -40,7 +40,7 @@ class Executor(CompiledExecutor):
     ext = 'rs'
     command = 'cargo'
     test_program = TEST_PROGRAM
-    compiler_time_limit = 20
+    compiler_time_limit = 60
     compiler_read_fs = [
         RecursiveDir('/home'),
         ExactFile('/etc/resolv.conf'),
