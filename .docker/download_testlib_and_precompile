@@ -15,6 +15,11 @@ g++ -std=c++17 $FLAGS -DTHEMIS /usr/include/testlib_themis_cms.h -o /usr/include
 g++ -std=c++17 $FLAGS -DCMS    /usr/include/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h.gch/cms
 g++ -std=c++17 $FLAGS          /usr/include/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h.gch/testlib
 
+# Download and precompile testlib_modified.h
+curl -L https://raw.githubusercontent.com/cuom1999/testlib/customized-testlib/testlib_modified.h -o /usr/include/testlib_modified.h
+sed -i '/^#include <cstdio>/a#include <cstdint>' /usr/include/testlib_modified.h
+g++ -std=c++17 $FLAGS /usr/include/testlib_modified.h
+
 # Precompile bits/stdc++.h
 IFS=$'\n' files=( $(find /usr/include/ -name stdc++.h) );
 for item in "${files[@]}"; {

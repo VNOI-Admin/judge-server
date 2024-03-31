@@ -6,19 +6,38 @@ export LANG=C.UTF-8
 export PYTHONIOENCODING=utf8
 
 cd /judge || exit
-/env/bin/pip3 install -q -e .
 
 case "$1" in
-run) command=(/env/bin/dmoj) ;;
-cli) command=(/env/bin/dmoj-cli) ;;
-test) command=(/env/bin/python3 -m dmoj.testsuite testsuite) ;;
-*)
-  echo "Invalid command, must be one of [run, cli, test]" 1>&2
-  exit 1
-  ;;
+  run)
+    command=(/env/bin/dmoj)
+    ;;
+  cli)
+    command=(/env/bin/dmoj-cli)
+    ;;
+  test)
+    command=(/env/bin/python3 -m dmoj.testsuite testsuite)
+    ;;
+  rebuild_source)
+    # Use 'master' as the default TAG if not provided
+    TAG=${TAG:-master}
+
+    echo "Downloading and extracting the latest code from GitHub branch/tag '${TAG}'..."
+    curl -L "https://github.com/LQDJudge/judge-server/archive/${TAG}.tar.gz" | tar -xz --strip-components=1
+
+    echo "Rebuilding the source..."
+    /env/bin/pip3 install -q -e .
+    echo "Source has been rebuilt."
+    exit 0
+    ;;
+  *)
+    echo "Invalid command, must be one of [run, cli, test, rebuild_source]" 1>&2
+    exit 1
+    ;;
 esac
 
 shift
+
 export HOME=~judge
 . ~judge/.profile
+
 exec setpriv --reuid judge --regid judge --clear-groups "${command[@]}" "$@"
