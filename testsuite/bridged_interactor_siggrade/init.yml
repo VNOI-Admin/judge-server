@@ -1,0 +1,15 @@
+unbuffered: true
+archive: seed2.zip
+interactive:
+  files: interactor.cpp
+  lang: CPP17
+  type: testlib
+signature_grader:
+  entry: handler.cpp
+  header: header.h
+test_cases:
+- {in: seed2.1.in, points: 20}
+- {in: seed2.2.in, points: 20}
+- {in: seed2.3.in, points: 20}
+- {in: seed2.4.in, points: 20}
+- {in: seed2.5.in, points: 20}

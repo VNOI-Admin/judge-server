@@ -1,0 +1,8 @@
+custom_judge: interact.py
+unbuffered: yes
+signature_grader:
+  entry: handler.cpp
+  header: header.h
+test_cases:
+- {in: 1.in, points: 10}
+- {in: 2.in, points: 10} 

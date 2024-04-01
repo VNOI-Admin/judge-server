@@ -204,8 +204,6 @@ class Problem:
 
         if 'custom_judge' in self.config:
             return cast(Type['BaseGrader'], graders.CustomGrader)
-        elif 'signature_grader' in self.config:
-            return graders.SignatureGrader
         elif 'interactive' in self.config:
             return graders.BridgedInteractiveGrader
         elif 'output_only' in self.config:
