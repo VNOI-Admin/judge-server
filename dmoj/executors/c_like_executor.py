@@ -148,7 +148,7 @@ class GCCMixin(CLikeExecutor):
 
     @classmethod
     def get_version_flags(cls, command: str) -> List[VersionFlags]:
-        return ['-dumpversion']
+        return ['-dumpfullversion']
 
 
 class ClangMixin(CLikeExecutor):
