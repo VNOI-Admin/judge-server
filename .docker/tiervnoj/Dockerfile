@@ -41,6 +41,7 @@ ENV PATH="/opt/kotlin/bin:/opt/pypy2/bin:/opt/pypy3/bin:/home/judge/.cargo/bin:$
 RUN mkdir /judge /problems && cd /judge && \
 	curl -L https://github.com/VNOI-Admin/judge-server/archive/"${TAG}".tar.gz | tar -xz --strip-components=1 && \
 	python3 -m venv --prompt=DMOJ /env && \
+ 	/env/bin/pip3 install setuptools && \
 	/env/bin/pip3 install cython && \
 	/env/bin/pip3 install -e . && \
 	/env/bin/python3 setup.py develop && \
