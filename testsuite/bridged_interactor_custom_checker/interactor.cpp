@@ -16,10 +16,11 @@ int main(int argc, char *argv[]) {
     }
     guesses++;
     if (guesses > 31) {
-      quitf(_wa, "too many guesses %d", guesses);
+      quitf(_wa, "interactor: too many guesses");
     }
   }
   if (guesses <= 31) {
-    quitf(_ok, "ok %d guesses", guesses);
+    tout << guesses << std::endl;
+    quitf(_ok, "interactor: ok");
   }
 }
