@@ -290,7 +290,7 @@ class Tester:
                 extended_feedback_cases,
             )
             self.judge.begin_grading(
-                Submission(self.sub_id, problem, language, source, time, memory, False, meta),
+                Submission(self.sub_id, problem, None, language, source, time, memory, False, meta),
                 blocking=True,
                 report=output_case,
             )

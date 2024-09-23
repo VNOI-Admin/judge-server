@@ -70,7 +70,15 @@ class SubmitCommand(Command):
         try:
             self.judge.begin_grading(
                 Submission(
-                    self.judge.submission_id_counter, problem_id, language_id, src, time_limit, memory_limit, False, {}
+                    self.judge.submission_id_counter,
+                    problem_id,
+                    None,
+                    language_id,
+                    src,
+                    time_limit,
+                    memory_limit,
+                    False,
+                    {},
                 ),
                 blocking=True,
                 report=print,

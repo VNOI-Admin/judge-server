@@ -3,6 +3,7 @@ import glob
 import logging
 import os
 import ssl
+from collections import defaultdict
 from fnmatch import fnmatch
 from operator import itemgetter
 from typing import Dict, Iterable, List, Optional, Set, Tuple
@@ -15,6 +16,7 @@ from dmoj.utils.ansi import print_ansi
 from dmoj.utils.glob_ext import find_glob_root
 from dmoj.utils.unicode import utf8text
 
+storage_namespaces: Dict[Optional[str], List[str]] = {}
 problem_globs: List[str] = []
 problem_watches: List[str] = []
 env: ConfigNode = ConfigNode(
@@ -74,9 +76,14 @@ cli_command: List[str] = []
 only_executors: Set[str] = set()
 exclude_executors: Set[str] = set()
 
-_problem_root_cache: Dict[str, str] = {}
-_problem_roots_cache: Optional[List[str]] = None
-_supported_problems_cache: Optional[List[Tuple[str, float]]] = None
+
+class StorageNamespaceCache:
+    problem_root_cache: Dict[str, str] = {}
+    problem_roots_cache: Optional[List[str]] = None
+    supported_problems_cache: Optional[List[Tuple[str, float]]] = None
+
+
+_storage_namespace_cache: Dict[Optional[str], StorageNamespaceCache] = defaultdict(StorageNamespaceCache)
 
 
 def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no cover
@@ -206,15 +213,23 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
         env['key'] = os.environ['DMOJ_JUDGE_KEY']
 
     if not testsuite:
-        problem_globs = env.problem_storage_globs
-        if problem_globs is None:
-            raise SystemExit(f'`problem_storage_globs` not specified in "{model_file}"; no problems available to grade')
+        storage_namespaces[None] = env.problem_storage_globs or []
+        storage_namespaces.update(env.storage_namespaces or {})
 
+        all_problem_globs = []
+        for globs in storage_namespaces.values():
+            all_problem_globs.extend(globs)
+
+        if not all_problem_globs:
+            raise SystemExit('no problems available to grade')
+
+        problem_globs = storage_namespaces[None]
         problem_watches = problem_globs
     else:
         if not os.path.isdir(args.tests_dir):
             raise SystemExit('Invalid tests directory')
         problem_globs = [os.path.join(args.tests_dir, '*')]
+        storage_namespaces[None] = problem_globs
 
         import re
 
@@ -229,25 +244,29 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
             except re.error:
                 raise SystemExit('Invalid case regex')
 
+    for namespace in storage_namespaces:
+        _storage_namespace_cache[namespace] = StorageNamespaceCache()
+
     skip_first_scan = False if cli else args.skip_first_scan
     if not skip_first_scan:
         # Populate cache and send warnings
         get_supported_problems_and_mtimes()
     else:
-        global _problem_roots_cache
-        global _supported_problems_cache
-        _problem_roots_cache = [str(root) for root in map(find_glob_root, problem_globs)]
-        _supported_problems_cache = []
+        for namespace, globs in storage_namespaces.items():
+            cache = _storage_namespace_cache[namespace]
+            cache.problem_roots_cache = [str(root) for root in map(find_glob_root, globs)]
+            cache.supported_problems_cache = []
 
 
 def get_problem_watches():
     return problem_watches
 
 
-def get_problem_root(problem_id) -> Optional[str]:
-    cached_root = _problem_root_cache.get(problem_id)
+def get_problem_root(problem_id, namespace=None) -> Optional[str]:
+    cache = _storage_namespace_cache[namespace]
+    cached_root = cache.problem_root_cache.get(problem_id)
     if cached_root is None or not os.path.isfile(os.path.join(cached_root, 'init.yml')):
-        for root_dir in get_problem_roots():
+        for root_dir in get_problem_roots(namespace):
             problem_root_dir = os.path.join(root_dir, problem_id)
             problem_config = os.path.join(problem_root_dir, 'init.yml')
             if os.path.isfile(problem_config):
@@ -255,18 +274,18 @@ def get_problem_root(problem_id) -> Optional[str]:
                     fnmatch(problem_config, os.path.join(problem_glob, 'init.yml')) for problem_glob in problem_globs
                 ):
                     continue
-                _problem_root_cache[problem_id] = problem_root_dir
+                cache.problem_root_cache[problem_id] = problem_root_dir
                 break
         else:
             return None
 
-    return _problem_root_cache[problem_id]
+    return cache.problem_root_cache[problem_id]
 
 
-def get_problem_roots() -> List[str]:
-    global _problem_roots_cache
-    assert _problem_roots_cache is not None
-    return _problem_roots_cache
+def get_problem_roots(namespace=None) -> List[str]:
+    cache = _storage_namespace_cache[namespace]
+    assert cache.problem_roots_cache is not None
+    return cache.problem_roots_cache
 
 
 def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool = False) -> List[Tuple[str, float]]:
@@ -276,16 +295,15 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
         A list of all problems in tuple format: (problem id, mtime)
     """
 
-    global _problem_roots_cache
-    global _supported_problems_cache
+    cache = _storage_namespace_cache[None]
 
-    if _supported_problems_cache is not None and not force_update:
-        return _supported_problems_cache
+    if cache.supported_problems_cache is not None and not force_update:
+        return cache.supported_problems_cache
 
     problems = []
     root_dirs = []
     root_dirs_set = set()
-    problem_dirs = {}
+    problem_dirs: Dict[str, str] = {}
     for dir_glob in problem_globs:
         for problem_config in glob.iglob(os.path.join(dir_glob, 'init.yml'), recursive=True):
             if os.access(problem_config, os.R_OK):
@@ -308,8 +326,8 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
                     problem_dirs[problem] = problem_dir
                     problems.append((problem, os.path.getmtime(problem_dir)))
 
-    _problem_roots_cache = root_dirs
-    _supported_problems_cache = problems
+    cache.problem_roots_cache = root_dirs
+    cache.supported_problems_cache = problems
 
     return problems
 
