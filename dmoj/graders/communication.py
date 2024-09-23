@@ -204,7 +204,11 @@ class CommunicationGrader(StandardGrader):
             aux_sources[signature_data['header']] = header
             entry = entry_point
             return executor(
-                self.problem.id, entry, aux_sources=aux_sources, defines=['-DSIGNATURE_GRADER']
+                self.problem.id,
+                entry,
+                storage_namespace=self.problem.storage_namespace,
+                aux_sources=aux_sources,
+                defines=['-DSIGNATURE_GRADER'],
             )
         elif is_signature_gradable and ext == 'java':
             aux_sources = {}
@@ -219,7 +223,9 @@ class CommunicationGrader(StandardGrader):
                 entry = self.source
                 aux_sources[self.problem.id + '_lib'] = entry_point
 
-            return executor(self.problem.id, entry, aux_sources=aux_sources)
+            return executor(
+                self.problem.id, entry, storage_namespace=self.problem.storage_namespace, aux_sources=aux_sources
+            )
         else:
             raise InternalError('no valid runtime for signature grading %s found' % self.language)
 
@@ -229,7 +235,7 @@ class CommunicationGrader(StandardGrader):
             filenames = [files]
         elif isinstance(files.unwrap(), list):
             filenames = list(files.unwrap())
-        problem_root = get_problem_root(self.problem.id)
+        problem_root = get_problem_root(self.problem.id, self.problem.storage_namespace)
         assert problem_root is not None
         filenames = [os.path.join(problem_root, f) for f in filenames]
         flags = self.handler_data.manager.get('flags', [])
@@ -237,6 +243,7 @@ class CommunicationGrader(StandardGrader):
         lang = self.handler_data.manager.lang
         compiler_time_limit = self.handler_data.manager.compiler_time_limit
         return compile_with_auxiliary_files(
+            self.problem.storage_namespace,
             filenames,
             flags,
             lang,

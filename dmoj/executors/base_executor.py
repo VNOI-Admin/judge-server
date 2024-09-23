@@ -137,6 +137,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
         self,
         problem_id: str,
         source_code: bytes,
+        storage_namespace: Optional[str] = None,
         dest_dir: Optional[str] = None,
         hints: Optional[List[str]] = None,
         unbuffered: bool = False,
@@ -146,6 +147,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
         self._dir = None
         self.problem = problem_id
         self.source = source_code
+        self.storage_namespace = '' if storage_namespace is None else storage_namespace
         self._hints = hints or []
         self.unbuffered = unbuffered
         self.meta: Dict[str, Any] = {}
