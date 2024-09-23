@@ -133,11 +133,16 @@ class BridgedInteractiveGrader(StandardGrader):
             filenames = [files]
         elif isinstance(files.unwrap(), list):
             filenames = list(files.unwrap())
-        problem_root = get_problem_root(self.problem.id)
+        problem_root = get_problem_root(self.problem.id, self.problem.storage_namespace)
         assert problem_root is not None
         filenames = [os.path.join(problem_root, f) for f in filenames]
         flags = self.handler_data.get('flags', [])
         unbuffered = self.handler_data.get('unbuffered', True)
         return compile_with_auxiliary_files(
-            filenames, flags, self.handler_data.lang, self.handler_data.compiler_time_limit, unbuffered
+            self.problem.storage_namespace,
+            filenames,
+            flags,
+            self.handler_data.lang,
+            self.handler_data.compiler_time_limit,
+            unbuffered,
         )

@@ -112,6 +112,7 @@ class StandardGrader(BaseGrader):
         return executors[self.language].Executor(
             self.problem.id,
             self.source,
+            storage_namespace=self.problem.storage_namespace,
             hints=self.problem.config.hints or [],
             unbuffered=self.problem.config.unbuffered,
             meta=self.problem.config.meta or {},

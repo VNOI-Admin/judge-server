@@ -28,7 +28,13 @@ class SignatureGrader(StandardGrader):
 
             aux_sources[handler_data['header']] = header
             entry = entry_point
-            return executor(self.problem.id, entry, aux_sources=aux_sources, defines=['-DSIGNATURE_GRADER'])
+            return executor(
+                self.problem.id,
+                entry,
+                storage_namespace=self.problem.storage_namespace,
+                aux_sources=aux_sources,
+                defines=['-DSIGNATURE_GRADER'],
+            )
         elif is_signature_gradable and ext == 'java':
             aux_sources = {}
             handler_data = self.problem.config['signature_grader']['java']
@@ -42,6 +48,8 @@ class SignatureGrader(StandardGrader):
                 entry = self.source
                 aux_sources[self.problem.id + '_lib'] = entry_point
 
-            return executor(self.problem.id, entry, aux_sources=aux_sources)
+            return executor(
+                self.problem.id, entry, storage_namespace=self.problem.storage_namespace, aux_sources=aux_sources
+            )
         else:
             raise InternalError('no valid runtime for signature grading %s found' % self.language)

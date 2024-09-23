@@ -213,7 +213,7 @@ class CompiledExecutor(BaseExecutor, metaclass=_CompiledExecutorMeta):
         raise CompileError(output)
 
     def get_binary_cache_key(self) -> bytes:
-        return utf8bytes(self.problem) + self.source
+        return utf8bytes(self.storage_namespace) + utf8bytes(self.problem) + self.source
 
     def compile(self) -> str:
         process = self.create_compile_process(self.get_compile_args())
