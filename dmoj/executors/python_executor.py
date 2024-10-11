@@ -30,6 +30,10 @@ runpy.run_path(sys.argv[0], run_name='__main__')
     data_grace = 2048
     ext = 'py'
 
+    def __init__(self, problem_id: str, source_code: bytes, **kwargs) -> None:
+        self.source_dict = kwargs.pop('aux_sources', {})
+        super().__init__(problem_id, source_code, **kwargs)
+
     def get_compile_args(self) -> List[str]:
         command = self.get_command()
         assert self._dir is not None
@@ -66,6 +70,14 @@ runpy.run_path(sys.argv[0], run_name='__main__')
             fo.write(b'\xef\xbb\xbf')
             fo.write(utf8bytes(source_code))
             loader.write(self.unbuffered_loader_script if self.unbuffered else self.loader_script)
+
+        self.source_paths = []
+        for name, source in self.source_dict.items():
+            if '.' not in name:
+                name += '.' + self.ext
+            with open(self._file(name), 'wb') as fo:
+                fo.write(utf8bytes(source))
+            self.source_paths.append(name)
 
     def parse_feedback_from_stderr(self, stderr: bytes, process: TracedPopen) -> str:
         if not stderr or len(stderr) > 2048:
