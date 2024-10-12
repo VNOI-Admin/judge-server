@@ -241,5 +241,5 @@ class UnknownPlatformMixin(ASMExecutor):
 
 NativeMixin: Any = (
     [cls for cls in (PlatformX86Mixin, PlatformX64Mixin, PlatformARMMixin, PlatformARM64Mixin) if cls.abi == NATIVE_ABI]
-    or [UnknownPlatformMixin]
+    or [UnknownPlatformMixin]  # type: ignore
 )[0]

@@ -47,7 +47,7 @@ class ResubmitCommand(Command):
         self.judge.graded_submissions.append((problem_id, lang, src, tl, ml))
         try:
             self.judge.begin_grading(
-                Submission(self.judge.submission_id_counter, problem_id, lang, src, tl, ml, False, {}),
+                Submission(self.judge.submission_id_counter, problem_id, None, lang, src, tl, ml, False, {}),
                 blocking=True,
                 report=print,
             )

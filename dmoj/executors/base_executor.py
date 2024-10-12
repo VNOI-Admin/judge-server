@@ -68,6 +68,9 @@ else:
         ExactDir('/sys/devices/system/cpu'),
         ExactFile('/sys/devices/system/cpu/online'),
         ExactFile('/etc/selinux/config'),
+        ExactFile('/sys/kernel/mm/transparent_hugepage/enabled'),
+        ExactFile('/sys/kernel/mm/transparent_hugepage/hpage_pmd_size'),
+        ExactFile('/sys/kernel/mm/transparent_hugepage/shmem_enabled'),
     ]
 
 if sys.platform.startswith('freebsd'):
@@ -133,6 +136,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
         self,
         problem_id: str,
         source_code: bytes,
+        storage_namespace: Optional[str] = None,
         dest_dir: Optional[str] = None,
         hints: Optional[List[str]] = None,
         unbuffered: bool = False,
@@ -142,6 +146,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
         self._dir = None
         self.problem = problem_id
         self.source = source_code
+        self.storage_namespace = '' if storage_namespace is None else storage_namespace
         self._hints = hints or []
         self.unbuffered = unbuffered
         self.meta: Dict[str, Any] = {}
@@ -345,9 +350,11 @@ class BaseExecutor(metaclass=ExecutorMeta):
             time=kwargs.get('time', 0),
             memory=kwargs.get('memory', 0),
             wall_time=kwargs.get('wall_time'),
-            stdin=stdin or kwargs.get('stdin'),
-            stdout=stdout or kwargs.get('stdout'),
+            stdin=stdin if stdin is not None else kwargs.get('stdin'),
+            stdout=stdout if stdout is not None else kwargs.get('stdout'),
             stderr=kwargs.get('stderr'),
+            child_stdin=kwargs.get('stdin') if stdin is not None else None,
+            child_stdout=kwargs.get('stdout') if stdout is not None else None,
             env=child_env,
             cwd=utf8bytes(self._dir),
             nproc=self.get_nproc(),

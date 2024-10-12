@@ -1,7 +1,11 @@
 import builtins
 import re
 from collections import deque
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+from pygments import highlight
+from pygments.formatters import Terminal256Formatter
+from pygments.lexers import get_lexer_by_name
 
 from dmoj.cptbox import TracedPopen
 from dmoj.executors.base_executor import VersionFlags
@@ -29,6 +33,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
     address_grace = 131072
     data_grace = 2048
     ext = 'py'
+    pygments_traceback_lexer: Optional[str] = None
 
     def __init__(self, problem_id: str, source_code: bytes, **kwargs) -> None:
         self.source_dict = kwargs.pop('aux_sources', {})
@@ -58,6 +63,12 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         # Disable integer string conversion length limitation
         env['PYTHONINTMAXSTRDIGITS'] = '0'
         return env
+
+    def handle_compile_error(self, output: bytes) -> None:
+        if self.pygments_traceback_lexer:
+            lexer = get_lexer_by_name(self.pygments_traceback_lexer)
+            output = utf8bytes(highlight(utf8text(output), lexer, Terminal256Formatter()))
+        super().handle_compile_error(output)
 
     def create_files(self, problem_id: str, source_code: bytes, *args, **kwargs) -> None:
         super().create_files(problem_id, source_code, **kwargs)

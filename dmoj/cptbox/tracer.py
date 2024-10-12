@@ -109,6 +109,8 @@ class TracedPopen(Process):
         stdin: Optional[int] = PIPE,
         stdout: Optional[int] = PIPE,
         stderr: Optional[int] = None,
+        child_stdin: Optional[int] = None,
+        child_stdout: Optional[int] = None,
         env: Optional[Mapping[str, Optional[str]]] = None,
         nproc: int = 0,
         fsize: int = 0,
@@ -147,7 +149,7 @@ class TracedPopen(Process):
 
         self._is_tle = False
         self._is_ole = False
-        self.__init_streams(stdin, stdout, stderr)
+        self.__init_streams(stdin, stdout, stderr, child_stdin, child_stdout)
         self._last_ptrace_errno = None
         self.protection_fault = None
 
@@ -292,7 +294,7 @@ class TracedPopen(Process):
     def _protection_fault(self, syscall: int, is_update: bool) -> None:
         # When signed, 0xFFFFFFFF is equal to -1, meaning that ptrace failed to read the syscall for some reason.
         # We can't continue debugging as this could potentially be unsafe, so we should exit loudly.
-        # See <https://github.com/DMOJ/judge/issues/181> for more details.
+        # See <https://github.com/DMOJ/judge-server/issues/181> for more details.
         if syscall == -1:
             err = self._last_ptrace_errno
             if err is None:
@@ -391,14 +393,17 @@ class TracedPopen(Process):
             self._devnull = os.open(os.devnull, os.O_RDWR)
         return self._devnull
 
-    def __init_streams(self, stdin, stdout, stderr) -> None:
+    def __init_streams(self, stdin, stdout, stderr, child_stdin, child_stdout) -> None:
         self.stdin = self.stdout = self.stderr = None
         self.stdin_needs_close = self.stdout_needs_close = self.stderr_needs_close = False
         self.fd_3_needs_close = self.fd_4_needs_close = False
         self._child_fd_3 = self._child_fd_4 = -1
 
         if stdin == FILE_IO_PIPE:
-            self._child_stdin = self._get_devnull()
+            if isinstance(child_stdin, int) and child_stdin >= 0:
+                self._child_stdin = child_stdin
+            else:
+                self._child_stdin = self._get_devnull()
             self._child_fd_3, self._stdin = os.pipe()
             self.stdin = os.fdopen(self._stdin, 'wb')
             self.fd_3_needs_close = True
@@ -414,7 +419,10 @@ class TracedPopen(Process):
             self._child_stdin = self._stdin = -1
 
         if stdout == FILE_IO_PIPE:
-            self._child_stdout = self._get_devnull()
+            if isinstance(child_stdout, int) and child_stdout >= 0:
+                self._child_stdout = child_stdout
+            else:
+                self._child_stdout = self._get_devnull()
             self._stdout, self._child_fd_4 = os.pipe()
             self.stdout = os.fdopen(self._stdout, 'rb')
             self.fd_4_needs_close = True

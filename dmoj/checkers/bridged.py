@@ -10,14 +10,14 @@ from dmoj.utils.helper_files import compile_with_auxiliary_files, mkdtemp, mktem
 from dmoj.utils.unicode import utf8text
 
 
-def get_executor(problem_id, files, flags, lang, compiler_time_limit):
+def get_executor(problem_id, storage_namespace, files, flags, lang, compiler_time_limit):
     if isinstance(files, str):
         filenames = [files]
     elif isinstance(files.unwrap(), list):
         filenames = list(files.unwrap())
 
-    filenames = [os.path.join(get_problem_root(problem_id), f) for f in filenames]
-    executor = compile_with_auxiliary_files(filenames, flags, lang, compiler_time_limit)
+    filenames = [os.path.join(get_problem_root(problem_id, storage_namespace), f) for f in filenames]
+    executor = compile_with_auxiliary_files(storage_namespace, filenames, flags, lang, compiler_time_limit)
 
     return executor
 
@@ -40,6 +40,7 @@ def check(
     input_name=None,
     output_name=None,
     treat_checker_points_as_percentage=False,
+    storage_namespace=None,
     **kwargs,
 ) -> CheckerResult:
 
@@ -52,7 +53,7 @@ def check(
         flags.append('-DTHEMIS')
     elif type == 'cms':
         flags.append('-DCMS')
-    executor = get_executor(problem_id, files, flags, lang, compiler_time_limit)
+    executor = get_executor(problem_id, storage_namespace, files, flags, lang, compiler_time_limit)
 
     if type not in contrib_modules:
         raise InternalError('%s is not a valid contrib module' % type)

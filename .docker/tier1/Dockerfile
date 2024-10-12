@@ -16,7 +16,7 @@ RUN ARCH=$([ $(uname -m) = "x86_64" ] && echo "amd64" || echo "arm64") && \
 RUN mkdir /judge /problems && cd /judge && \
 	curl -L https://github.com/VNOI-Admin/judge-server/archive/"${TAG}".tar.gz | tar -xz --strip-components=1 && \
 	python3 -m venv --prompt=DMOJ /env && \
-	/env/bin/pip3 install cython && \
+	/env/bin/pip3 install cython setuptools && \
 	/env/bin/pip3 install -e . && \
 	/env/bin/python3 setup.py develop && \
 	HOME=~judge . ~judge/.profile && \

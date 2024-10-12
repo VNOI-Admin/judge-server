@@ -163,7 +163,7 @@ class Tester:
         print_ansi('#ansi[%s](red)' % message)
 
     def test_all(self):
-        total_fails = 0
+        all_fails = []
 
         for problem in get_supported_problems():
             if self.problem_regex is not None and not self.problem_regex.match(problem):
@@ -177,12 +177,12 @@ class Tester:
                         ansi_style('Problem #ansi[%s](cyan|bold) #ansi[failed %d case(s)](red|bold).')
                         % (problem, fails)
                     )
+                    all_fails.append(problem)
                 else:
                     self.output(ansi_style('Problem #ansi[%s](cyan|bold) passed with flying colours.') % problem)
                 self.output()
-                total_fails += fails
 
-        return total_fails
+        return all_fails
 
     def test_problem(self, problem, test_dir):
         self.output(ansi_style('Testing problem #ansi[%s](cyan|bold)...') % problem)
@@ -290,7 +290,7 @@ class Tester:
                 extended_feedback_cases,
             )
             self.judge.begin_grading(
-                Submission(self.sub_id, problem, language, source, time, memory, False, meta),
+                Submission(self.sub_id, problem, None, language, source, time, memory, False, meta),
                 blocking=True,
                 report=output_case,
             )
@@ -351,7 +351,8 @@ def main():
     print()
     print('Test complete.')
     if fails:
-        print_ansi('#ansi[A total of %d case(s) failed](red|bold).' % fails)
+        print_ansi('#ansi[A total of %d case(s) failed](red|bold).' % len(fails))
+        print('\n'.join(fails))
     else:
         print_ansi('#ansi[All cases passed.](green|bold)')
     raise SystemExit(int(fails != 0))

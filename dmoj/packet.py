@@ -260,6 +260,7 @@ class PacketManager:
                 Submission(
                     id=packet['submission-id'],
                     problem_id=packet['problem-id'],
+                    storage_namespace=packet.get('storage-namespace', None),
                     language=packet['language'],
                     source=packet['source'],
                     time_limit=float(packet['time-limit']),

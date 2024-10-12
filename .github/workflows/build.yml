@@ -61,14 +61,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ '3.7', '3.8', '3.9', '3.10', '3.11' ]
+        python-version: [ '3.7', '3.8', '3.9', '3.10', '3.11', '3.12' ]
     steps:
       - uses: actions/checkout@v4
       - name: Download docker image
         run: docker pull vnoj/runtimes-tier3
       - name: Install python
         run: |
-          curl -L "https://github.com/DMOJ/runtimes-python/releases/latest/download/python${{ matrix.python-version }}-amd64.tar.gz" |
+          curl -L "https://github.com/VNOI-Admin/runtimes-python/releases/latest/download/python${{ matrix.python-version }}-amd64.tar.gz" |
           tar -xz
       - name: Create docker scripts
         run: |

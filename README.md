@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://avatars2.githubusercontent.com/u/6934864?v=3&s=1000" width="120px">
+  <img src="https://github.com/DMOJ/online-judge/blob/master/logo.png?raw=true" width="120px">
   <br>
   DMOJ Judge
 </h1>
@@ -56,6 +56,7 @@ Supported languages include:
 The judge can also grade in the languages listed below:
 
 * Ada
+* Algol 68
 * AWK
 * Brain\*\*\*\*
 * COBOL
@@ -104,10 +105,10 @@ Note that **the only Linux distribution with first-class support is the latest D
 
 ### Stable build
 
-[![PyPI version](https://badge.fury.io/py/dmoj.svg)](https://pypi.python.org/pypi/dmoj)
-[![PyPI](https://img.shields.io/pypi/pyversions/dmoj.svg)](https://pypi.python.org/pypi/dmoj)
+[![PyPI version](https://badge.fury.io/py/dmoj.svg)](https://pypi.org/project/dmoj/)
+[![PyPI](https://img.shields.io/pypi/pyversions/dmoj.svg)](https://pypi.org/project/dmoj/)
 
-We periodically publish builds [on PyPI](https://pypi.python.org/pypi/dmoj). This is the easiest way to get started,
+We periodically publish builds [on PyPI](https://pypi.org/project/dmoj/). This is the easiest way to get started,
 but may not contain all the latest features and improvements.
 
 ```

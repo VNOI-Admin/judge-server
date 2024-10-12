@@ -1,7 +1,10 @@
+import fcntl
 import hashlib
 import os
 import pty
+import struct
 import tempfile
+import termios
 from typing import Any, Dict, IO, List, Optional, Tuple, Union
 
 
@@ -109,8 +112,16 @@ class CompiledExecutor(BaseExecutor, metaclass=_CompiledExecutorMeta):
     def get_compile_popen_kwargs(self) -> Dict[str, Any]:
         return {}
 
+    def get_compiler_read_fs(self) -> List[FilesystemAccessRule]:
+        return self.get_fs() + self.compiler_read_fs
+
+    def get_compiler_write_fs(self) -> List[FilesystemAccessRule]:
+        return self.get_write_fs() + self.compiler_write_fs
+
     def get_compiler_security(self):
-        sec = CompilerIsolateTracer(tmpdir=self._dir, read_fs=self.compiler_read_fs, write_fs=self.compiler_write_fs)
+        sec = CompilerIsolateTracer(
+            tmpdir=self._dir, read_fs=self.get_compiler_read_fs(), write_fs=self.get_compiler_write_fs()
+        )
         return self._add_syscalls(sec, self.compiler_syscalls)
 
     def create_compile_process(self, args: List[str]) -> TracedPopen:
@@ -120,6 +131,11 @@ class CompiledExecutor(BaseExecutor, metaclass=_CompiledExecutorMeta):
         #
         # Emulate the streams of a process connected to a terminal: stdin, stdout, and stderr are all ptys.
         _master, _slave = pty.openpty()
+
+        # Some runtimes helpfully try to word-wrap error messages by determining the width of the screen. Lie and say
+        # we're a 1024x1024 terminal, so they don't try wrapping to 1-column width.
+        fcntl.ioctl(_slave, termios.TIOCSWINSZ, struct.pack('HHHH', 1024, 1024, 0, 0))
+
         # Some runtimes *cough cough* Swift *cough cough* actually check the environment variables too.
         env = self.get_compile_env() or os.environ.copy()
         env['TERM'] = 'xterm'
@@ -199,7 +215,7 @@ class CompiledExecutor(BaseExecutor, metaclass=_CompiledExecutorMeta):
         raise CompileError(output)
 
     def get_binary_cache_key(self) -> bytes:
-        return utf8bytes(self.problem) + self.source
+        return utf8bytes(self.storage_namespace) + utf8bytes(self.problem) + self.source
 
     def compile(self) -> str:
         process = self.create_compile_process(self.get_compile_args())

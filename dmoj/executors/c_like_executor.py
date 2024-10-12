@@ -51,7 +51,10 @@ class CLikeExecutor(SingleDigitVersionMixin, CompiledExecutor):
         command = self.get_command()
         assert command is not None
         key_components = (
-            [self.problem, command, self.get_march_flag()] + self.get_defines() + self.get_flags() + self.get_ldflags()
+            [self.storage_namespace, self.problem, command, self.get_march_flag()]
+            + self.get_defines()
+            + self.get_flags()
+            + self.get_ldflags()
         )
         return utf8bytes(''.join(key_components)) + b''.join(self.source_dict.values())
 
@@ -148,7 +151,7 @@ class GCCMixin(CLikeExecutor):
 
     @classmethod
     def get_version_flags(cls, command: str) -> List[VersionFlags]:
-        return ['-dumpversion']
+        return ['-dumpfullversion']
 
 
 class ClangMixin(CLikeExecutor):

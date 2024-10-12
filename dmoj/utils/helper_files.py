@@ -27,6 +27,7 @@ def mkdtemp():
 
 
 def compile_with_auxiliary_files(
+    storage_namespace: Optional[str],
     filenames: Sequence[str],
     flags: List[str] = [],
     lang: Optional[str] = None,
@@ -70,7 +71,12 @@ def compile_with_auxiliary_files(
 
     executor = executors.executors[lang].Executor
 
-    kwargs = {'fs': executor.fs + [RecursiveDir(tempfile.gettempdir())]}
+    kwargs = {
+        'storage_namespace': storage_namespace,
+        'cached': True,
+        'unbuffered': unbuffered,
+        'fs': executor.fs + [RecursiveDir(tempfile.gettempdir())],
+    }
 
     if issubclass(executor, CompiledExecutor):
         kwargs['compiler_time_limit'] = compiler_time_limit
@@ -81,11 +87,11 @@ def compile_with_auxiliary_files(
     # Optimize the common case.
     if use_cpp or use_c:
         # Some auxiliary files (like those using testlib.h) take an extremely long time to compile, so we cache them.
-        executor = executor('_aux_file', None, aux_sources=sources, cached=True, unbuffered=unbuffered, **kwargs)
+        executor = executor('_aux_file', None, aux_sources=sources, **kwargs)
     else:
         if len(sources) > 1:
             raise InternalError('non-C/C++ auxiliary programs cannot be multi-file')
-        executor = executor('_aux_file', list(sources.values())[0], cached=True, unbuffered=unbuffered, **kwargs)
+        executor = executor('_aux_file', list(sources.values())[0], **kwargs)
 
     return executor
 

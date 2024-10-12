@@ -95,7 +95,9 @@ class ValidateCommand(Command):
 
         filenames = [os.path.abspath(os.path.join(problem_root, name)) for name in filenames]
         try:
-            executor = compile_with_auxiliary_files(filenames, lang=language, compiler_time_limit=compiler_time_limit)
+            executor = compile_with_auxiliary_files(
+                None, filenames, lang=language, compiler_time_limit=compiler_time_limit
+            )
         except CompileError as compilation_error:
             print_ansi('#ansi[Failed compiling validator!](red|bold)')
             print(compilation_error.message.rstrip())

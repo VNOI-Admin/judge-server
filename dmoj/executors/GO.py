@@ -2,7 +2,6 @@ import os
 import re
 from typing import Dict, List
 
-from dmoj.cptbox.filesystem_policies import ExactFile
 from dmoj.error import CompileError
 from dmoj.executors.base_executor import VersionFlags
 from dmoj.executors.compiled_executor import CompiledExecutor
@@ -23,12 +22,7 @@ class Executor(CompiledExecutor):
     address_grace = 786432
     command = 'go'
     syscalls = ['mincore', 'mlock', 'setrlimit']
-    compiler_syscalls = ['copy_file_range', 'setrlimit']
-    fs = [
-        # Go will start without THP information, but has some tuning for when
-        # it is available -- so let's allow it to tell.
-        ExactFile('/sys/kernel/mm/transparent_hugepage/hpage_pmd_size'),
-    ]
+    compiler_syscalls = ['copy_file_range', 'setrlimit', 'pidfd_open', 'pidfd_send_signal']
     test_name = 'echo'
     test_program = """\
 package main

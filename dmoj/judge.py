@@ -61,6 +61,7 @@ Submission = NamedTuple(
     [
         ('id', int),
         ('problem_id', str),
+        ('storage_namespace', Optional[str]),
         ('language', str),
         ('source', str),
         ('time_limit', float),
@@ -448,7 +449,11 @@ class JudgeWorker:
 
     def _grade_cases(self) -> Generator[Tuple[IPC, tuple], None, None]:
         problem = Problem(
-            self.submission.problem_id, self.submission.time_limit, self.submission.memory_limit, self.submission.meta
+            self.submission.problem_id,
+            self.submission.time_limit,
+            self.submission.memory_limit,
+            self.submission.meta,
+            storage_namespace=self.submission.storage_namespace,
         )
 
         try:
