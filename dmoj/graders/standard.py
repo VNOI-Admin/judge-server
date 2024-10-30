@@ -4,7 +4,7 @@ import uuid
 
 from dmoj.checkers import CheckerOutput
 from dmoj.cptbox import TracedPopen
-from dmoj.error import OutputLimitExceeded, InternalError
+from dmoj.error import OutputLimitExceeded, CompileError
 from dmoj.executors import executors
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.graders.base import BaseGrader
@@ -134,54 +134,68 @@ class StandardGrader(BaseGrader):
         )
 
     def _generate_signature_binary(self) -> BaseExecutor:
-        cpp_siggraders = ('C', 'C11', 'CPP03', 'CPP11', 'CPP14', 'CPP17', 'CPP20', 'CPPTHEMIS', 'CLANG', 'CLANGX')
-        java_siggraders = ('JAVA', 'JAVA8', 'JAVA9', 'JAVA10', 'JAVA11', 'JAVA15', 'JAVA17')
-        py_siggraders = ('PY2', 'PY3', 'PYPY', 'PYPY3')
+        language_handlers = {
+            'cpp': ('C', 'C11', 'CPP03', 'CPP11', 'CPP14', 'CPP17', 'CPP20', 'CPPTHEMIS', 'CLANG', 'CLANGX'),
+            'java': ('JAVA', 'JAVA8', 'JAVA9', 'JAVA10', 'JAVA11', 'JAVA15', 'JAVA17'),
+            'python': ('PY2', 'PY3', 'PYPY', 'PYPY3'),
+        }
 
-        if self.language in cpp_siggraders:
-            aux_sources = {}
-            handler_data = self.problem.config['signature_grader']
+        for lang_type, languages in language_handlers.items():
+            if self.language in languages:
+                return getattr(self, f'_generate_{lang_type}_binary')()
 
+        raise CompileError(f'no valid runtime for signature grading {self.language} found')
+
+    def _generate_cpp_binary(self) -> BaseExecutor:
+        handler_data = self.problem.config['signature_grader']
+        try:
             entry_point = self.problem.problem_data[handler_data['entry']]
             header = self.problem.problem_data[handler_data['header']]
+        except TypeError:
+            raise CompileError(f'no valid runtime for signature grading {self.language} found')
 
-            submission_prefix = f'#include "{handler_data["header"]}"\n'
-            if not handler_data.get('allow_main', False):
-                submission_prefix += '#define main main_%s\n' % uuid.uuid4().hex
+        submission_prefix = f'#include "{handler_data["header"]}"\n'
+        if not handler_data.get('allow_main', False):
+            submission_prefix += '#define main main_%s\n' % uuid.uuid4().hex
 
-            aux_sources[self.problem.id + '_submission'] = utf8bytes(submission_prefix) + self.source
+        aux_sources = {
+            self.problem.id + '_submission': utf8bytes(submission_prefix) + self.source,
+            handler_data['header']: header,
+        }
+        return executors[self.language].Executor(
+            self.problem.id, entry_point, aux_sources=aux_sources, defines=['-DSIGNATURE_GRADER']
+        )
 
-            aux_sources[handler_data['header']] = header
-            entry = entry_point
-            return executors[self.language].Executor(
-                self.problem.id, entry, aux_sources=aux_sources, defines=['-DSIGNATURE_GRADER']
-            )
-        elif self.language in java_siggraders:
-            aux_sources = {}
+    def _generate_java_binary(self) -> BaseExecutor:
+        try:
             handler_data = self.problem.config['signature_grader']['java']
-
             entry_point = self.problem.problem_data[handler_data['entry']]
+        except TypeError:
+            raise CompileError(f'no valid runtime for signature grading {self.language} found')
 
-            if not self.problem.config['signature_grader'].get('allow_main', False):
-                entry = entry_point
-                aux_sources[self.problem.id + '_submission'] = self.source
-            else:
-                entry = self.source
-                aux_sources[self.problem.id + '_lib'] = entry_point
+        aux_sources = {}
+        if not self.problem.config['signature_grader'].get('allow_main', False):
+            aux_sources[self.problem.id + '_submission'] = self.source
+            entry = entry_point
+        else:
+            aux_sources[self.problem.id + '_lib'] = entry_point
+            entry = self.source
 
-            return executors[self.language].Executor(self.problem.id, entry, aux_sources=aux_sources)
-        elif self.language in py_siggraders:
-            aux_sources = {}
+        return executors[self.language].Executor(self.problem.id, entry, aux_sources=aux_sources)
+
+    def _generate_python_binary(self) -> BaseExecutor:
+        try:
             handler_data = self.problem.config['signature_grader']['python']
             entry_point = self.problem.problem_data[handler_data['entry']]
+        except TypeError:
+            raise CompileError(f'no valid runtime for signature grading {self.language} found')
 
-            if not self.problem.config['signature_grader'].get('allow_main', False):
-                entry = entry_point
-                aux_sources['_submission'] = self.source
-            else:
-                entry = self.source
-                aux_sources['_lib'] = entry_point
-
-            return executors[self.language].Executor(self.problem.id, entry, aux_sources=aux_sources)
+        aux_sources = {}
+        if not self.problem.config['signature_grader'].get('allow_main', False):
+            aux_sources['_submission'] = self.source
+            entry = entry_point
         else:
-            raise InternalError('no valid runtime for signature grading %s found' % self.language)
+            aux_sources['_lib'] = entry_point
+            entry = self.source
+
+        return executors[self.language].Executor(self.problem.id, entry, aux_sources=aux_sources)
