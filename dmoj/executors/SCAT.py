@@ -27,7 +27,7 @@ class Executor(ScriptExecutor):
         'statx',
     ]
     address_grace = 1048576
-    test_program = "https://raw.githubusercontent.com/LQDJudge/judge-server/master/asset/scratch_test_program.sb3"
+    # test_program = "https://raw.githubusercontent.com/LQDJudge/judge-server/master/asset/scratch_test_program.sb3"
     item_filename = {}
 
     @classmethod
