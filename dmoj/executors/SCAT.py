@@ -28,6 +28,7 @@ class Executor(ScriptExecutor):
     ]
     address_grace = 1048576
     # test_program = "https://raw.githubusercontent.com/LQDJudge/judge-server/master/asset/scratch_test_program.sb3"
+    test_program = None
     item_filename = {}
 
     @classmethod
