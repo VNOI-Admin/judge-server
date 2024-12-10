@@ -105,6 +105,7 @@ class IsolateTracer(dict):
                 sys_epoll_pwait: ALLOW,
                 sys_poll: ALLOW,
                 sys_ppoll: ALLOW,
+                sys_getgroups: ALLOW,
                 sys_getgroups32: ALLOW,
                 sys_sched_getaffinity: ALLOW,
                 sys_sched_getparam: ALLOW,
