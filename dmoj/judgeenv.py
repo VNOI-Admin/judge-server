@@ -319,7 +319,6 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
                 with open(cache_file, 'rb') as f:
                     dir_glob_problems = pickle.load(f)
                     problems.extend(dir_glob_problems)
-                    print(dir_glob_problems)
                     continue
             except (IOError, pickle.PickleError) as e:
                 print(f"Failed to read from cache file {cache_file}: {e}")
