@@ -9,6 +9,7 @@ from collections import defaultdict
 from fnmatch import fnmatch
 from operator import itemgetter
 from typing import Dict, Iterable, List, Optional, Set, Tuple
+import pickle
 
 import yaml
 
@@ -312,6 +313,18 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
     root_dirs_set = set()
     problem_dirs: Dict[str, str] = {}
     for dir_glob in problem_globs:
+        cache_file = os.path.join(dir_glob.rstrip('*/'), 'cache.pkl')
+        if not force_update and os.path.exists(cache_file):
+            try:
+                with open(cache_file, 'rb') as f:
+                    dir_glob_problems = pickle.load(f)
+                    problems.extend(dir_glob_problems)
+                    print(dir_glob_problems)
+                    continue
+            except (IOError, pickle.PickleError) as e:
+                print(f"Failed to read from cache file {cache_file}: {e}")
+
+        dir_glob_problems = []
         for problem_config in glob.iglob(os.path.join(dir_glob, 'init.yml'), recursive=True):
             if os.access(problem_config, os.R_OK):
                 problem_dir = os.path.dirname(problem_config)
@@ -331,7 +344,16 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
                         )
                 else:
                     problem_dirs[problem] = problem_dir
-                    problems.append((problem, os.path.getmtime(problem_dir)))
+                    dir_glob_problems.append((problem, os.path.getmtime(problem_dir)))
+
+        problems.extend(dir_glob_problems)
+
+        # Store to cache file
+        try:
+            with open(cache_file, 'wb') as f:
+                pickle.dump(dir_glob_problems, f)
+        except (IOError, pickle.PickleError) as e:
+            print(f"Failed to write cache file {cache_file}: {e}")
 
     cache.problem_roots_cache = root_dirs
     cache.supported_problems_cache = problems
