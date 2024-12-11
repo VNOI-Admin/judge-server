@@ -302,7 +302,6 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
     :return:
         A list of all problems in tuple format: (problem id, mtime)
     """
-
     cache = _storage_namespace_cache[None]
 
     if cache.supported_problems_cache is not None and not force_update:
@@ -312,50 +311,76 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
     root_dirs = []
     root_dirs_set = set()
     problem_dirs: Dict[str, str] = {}
+
+    def process_problem_config(problem_config: str) -> Optional[Tuple[str, str, str, float]]:
+        if not os.access(problem_config, os.R_OK):
+            return None
+
+        problem_dir = os.path.dirname(problem_config)
+        problem = utf8text(os.path.basename(problem_dir))
+        root_dir = os.path.dirname(problem_dir)
+        mtime = os.path.getmtime(problem_dir)
+
+        return problem, problem_dir, root_dir, mtime
+
     for dir_glob in problem_globs:
         cache_file = os.path.join(dir_glob.rstrip('*/'), 'cache.pkl')
+        current_problems = []
+        current_root_dirs = []
+
+        # Try to load from cache
         if not force_update and os.path.exists(cache_file):
             try:
                 with open(cache_file, 'rb') as f:
-                    dir_glob_problems = pickle.load(f)
-                    problems.extend(dir_glob_problems)
+                    cached_data = pickle.load(f)
+                    current_problems, current_root_dirs, cached_problem_dirs = cached_data
+                    problem_dirs.update(cached_problem_dirs)
+                    problems.extend(current_problems)
+                    for rd in current_root_dirs:
+                        if rd not in root_dirs_set:
+                            root_dirs.append(rd)
+                            root_dirs_set.add(rd)
                     continue
             except (IOError, pickle.PickleError) as e:
                 print(f"Failed to read from cache file {cache_file}: {e}")
 
-        dir_glob_problems = []
+        # Scan directory if cache fails or force_update is True
+        current_problem_dirs = {}
         for problem_config in glob.iglob(os.path.join(dir_glob, 'init.yml'), recursive=True):
-            if os.access(problem_config, os.R_OK):
-                problem_dir = os.path.dirname(problem_config)
-                problem = utf8text(os.path.basename(problem_dir))
+            result = process_problem_config(problem_config)
+            if not result:
+                continue
 
-                root_dir = os.path.dirname(problem_dir)
-                if root_dir not in root_dirs_set:
-                    # earlier-listed problem root takes priority
-                    root_dirs.append(root_dir)
-                    root_dirs_set.add(root_dir)
+            problem, problem_dir, root_dir, mtime = result
 
-                if problem in problem_dirs:
-                    if warnings:
-                        print_ansi(
-                            f'#ansi[Warning: duplicate problem {problem} found at {problem_dir},'
-                            f' ignoring in favour of {problem_dirs[problem]}](yellow)'
-                        )
-                else:
-                    problem_dirs[problem] = problem_dir
-                    dir_glob_problems.append((problem, os.path.getmtime(problem_dir)))
+            if root_dir not in root_dirs_set:
+                current_root_dirs.append(root_dir)
+                root_dirs_set.add(root_dir)
 
-        problems.extend(dir_glob_problems)
+            if problem in problem_dirs:
+                if warnings:
+                    print_ansi(
+                        f'#ansi[Warning: duplicate problem {problem} found at {problem_dir},'
+                        f' ignoring in favour of {problem_dirs[problem]}](yellow)'
+                    )
+            else:
+                problem_dirs[problem] = problem_dir
+                current_problem_dirs[problem] = problem_dir
+                current_problems.append((problem, mtime))
 
-        # Store to cache file
+        problems.extend(current_problems)
+        root_dirs.extend(current_root_dirs)
+
+        # Update cache file
         try:
             with open(cache_file, 'wb') as f:
-                pickle.dump(dir_glob_problems, f)
+                pickle.dump((current_problems, current_root_dirs, current_problem_dirs), f)
         except (IOError, pickle.PickleError) as e:
             print(f"Failed to write cache file {cache_file}: {e}")
 
     cache.problem_roots_cache = root_dirs
     cache.supported_problems_cache = problems
+    cache.problem_root_cache = problem_dirs
 
     return problems
 
