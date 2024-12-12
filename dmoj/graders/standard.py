@@ -31,7 +31,7 @@ class StandardGrader(BaseGrader):
             error = self._interact_with_process(case, result, input)
             process = self._current_proc
 
-            if process.is_tle and process.execution_time < execution_time_upper:
+            if process and process.is_tle and process.execution_time < execution_time_upper:
                 process.kill()
                 log.info('Retry TLE %.3fs (within 0.5s of time limit %.3fs)', process.execution_time, time_limit)
                 retry_count -= 1

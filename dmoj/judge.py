@@ -11,7 +11,7 @@ from enum import Enum
 from http.server import HTTPServer
 from itertools import groupby
 from operator import itemgetter
-from typing import Any, Callable, Dict, Generator, List, NamedTuple, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Generator, List, NamedTuple, Optional, Set, Tuple, Union
 
 from dmoj import packet
 from dmoj.control import JudgeControlRequestHandler
@@ -474,7 +474,7 @@ class JudgeWorker:
         flattened_cases: List[Tuple[Optional[int], BaseTestCase]] = []
         batch_number = 0
         batch_dependencies: List[Set[int]] = []
-        batch_points: Dict[int, int] = {}
+        batch_points: Dict[int, Union[int, float]] = {}
         for case in problem.cases():
             if isinstance(case, BatchedTestCase):
                 batch_number += 1

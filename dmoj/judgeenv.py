@@ -22,6 +22,7 @@ from dmoj.utils.glob_ext import find_glob_root
 storage_namespaces: Dict[Optional[str], List[str]] = {}
 problem_globs: List[str] = []
 problem_watches: List[str] = []
+logger = logging.getLogger(__name__)
 env: ConfigNode = ConfigNode(
     defaults={
         'selftest_time_limit': 60,  # 60 seconds
@@ -85,6 +86,14 @@ class StorageNamespaceCache:
     problem_roots_cache: Optional[List[str]] = None
     supported_problems_cache: Optional[List[Tuple[str, float]]] = None
 
+    def __str__(self) -> str:
+        return (
+            f"StorageNamespaceCache(\n"
+            f"  problem_root_cache: {self.problem_root_cache},\n"
+            f"  problem_roots_cache: {self.problem_roots_cache},\n"
+            f"  supported_problems_cache: {self.supported_problems_cache}\n"
+            f")"
+        )
 
 _storage_namespace_cache: Dict[Optional[str], StorageNamespaceCache] = defaultdict(StorageNamespaceCache)
 
@@ -271,29 +280,57 @@ def get_problem_watches():
 
 
 def get_problem_root(problem_id, namespace=None) -> Optional[str]:
-    cache = _storage_namespace_cache[namespace]
-    cached_root = cache.problem_root_cache.get(problem_id)
-    if cached_root is None or not os.path.isfile(os.path.join(cached_root, 'init.yml')):
-        for root_dir in get_problem_roots(namespace):
-            problem_root_dir = os.path.join(root_dir, problem_id)
-            problem_config = os.path.join(problem_root_dir, 'init.yml')
-            if os.path.isfile(problem_config):
-                if problem_globs and not any(
-                    fnmatch(problem_config, os.path.join(problem_glob, 'init.yml')) for problem_glob in problem_globs
-                ):
-                    continue
-                cache.problem_root_cache[problem_id] = problem_root_dir
-                break
-        else:
-            return None
+    def _find_problem_root():
+        cache = _storage_namespace_cache[namespace]
+        cached_root = cache.problem_root_cache.get(problem_id)
 
-    return cache.problem_root_cache[problem_id]
+        if cached_root is None or not os.path.isfile(os.path.join(cached_root, 'init.yml')):
+            for root_dir in get_problem_roots(namespace):
+                problem_root_dir = os.path.join(root_dir, problem_id)
+                problem_config = os.path.join(problem_root_dir, 'init.yml')
+                if os.path.isfile(problem_config):
+                    if problem_globs and not any(
+                        fnmatch(problem_config, os.path.join(problem_glob, 'init.yml'))
+                        for problem_glob in problem_globs
+                    ):
+                        continue
+                    cache.problem_root_cache[problem_id] = problem_root_dir
+                    break
+            else:
+                return None
+        return cache.problem_root_cache[problem_id]
+
+    problem_root = _find_problem_root()
+    if problem_root:
+        return problem_root
+
+    # Recalculate the cache based on filecache
+    logger.error('root_dir is None. 1st retry. cache=%s', _storage_namespace_cache[namespace])
+    clear_storage_cache(namespace)
+    get_supported_problems_and_mtimes(force_update=False)
+    problem_root = _find_problem_root()
+    if problem_root:
+        return problem_root
+
+    # Recalculate the cache with scanning
+    logger.error('root_dir is None. 2nd retry. cache=%s', _storage_namespace_cache[namespace])
+    clear_storage_cache(namespace)
+    get_supported_problems_and_mtimes(force_update=True)
+    problem_root = _find_problem_root()
+    if problem_root:
+        return problem_root
+
+    return None
 
 
 def get_problem_roots(namespace=None) -> List[str]:
     cache = _storage_namespace_cache[namespace]
     assert cache.problem_roots_cache is not None
     return cache.problem_roots_cache
+
+
+def clear_storage_cache(namespace=None) -> None:
+    _storage_namespace_cache[namespace] = StorageNamespaceCache()
 
 
 def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool = False) -> List[Tuple[str, float]]:
@@ -324,7 +361,7 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
         return problem, problem_dir, root_dir, mtime
 
     for dir_glob in problem_globs:
-        cache_file = os.path.join(dir_glob.rstrip('*/'), 'cache.pkl')
+        cache_file: str = os.path.join(dir_glob.rstrip('*/'), 'cache.pkl')
         current_problems = []
         current_root_dirs = []
 
@@ -373,8 +410,8 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
 
         # Update cache file
         try:
-            with open(cache_file, 'wb') as f:
-                pickle.dump((current_problems, current_root_dirs, current_problem_dirs), f)
+            with open(cache_file, 'wb') as fw:
+                pickle.dump((current_problems, current_root_dirs, current_problem_dirs), fw)
         except (IOError, pickle.PickleError) as e:
             print(f"Failed to write cache file {cache_file}: {e}")
 

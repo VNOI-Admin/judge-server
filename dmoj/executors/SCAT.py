@@ -8,6 +8,8 @@ from dmoj.executors.script_executor import ScriptExecutor
 from dmoj.utils.helper_files import download_source_code
 from dmoj.utils.unicode import utf8bytes, utf8text
 
+from typing import Dict
+
 
 class Executor(ScriptExecutor):
     ext = 'sb3'
@@ -28,8 +30,8 @@ class Executor(ScriptExecutor):
     ]
     address_grace = 1048576
     # test_program = "https://raw.githubusercontent.com/LQDJudge/judge-server/master/asset/scratch_test_program.sb3"
-    test_program = None
-    item_filename = {}
+    test_program = ""
+    item_filename: Dict[str, str] = {}
 
     @classmethod
     def get_command(cls):

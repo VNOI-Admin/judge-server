@@ -1,10 +1,14 @@
 import re
+from typing import TYPE_CHECKING
 
 from dmoj.contrib.default import ContribModule as DefaultContribModule
 from dmoj.error import InternalError
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.result import CheckerResult
 from dmoj.utils.helper_files import parse_helper_file_error
+
+if TYPE_CHECKING:
+    from dmoj.cptbox import TracedPopen
 
 
 class ContribModule(DefaultContribModule):

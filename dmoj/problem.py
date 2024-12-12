@@ -44,7 +44,7 @@ DEFAULT_TEST_CASE_OUTPUT_PATTERN = r'^(?=.*?\.out|out).*?(?:(?:^|\W)(?P<batch>\d
 
 class BaseTestCase:
     config: ConfigNode
-    points: int
+    points: Union[float, int]
     problem: 'Problem'
 
 
