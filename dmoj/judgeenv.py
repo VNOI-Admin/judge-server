@@ -378,7 +378,7 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
                             root_dirs.append(rd)
                             root_dirs_set.add(rd)
                     continue
-            except (IOError, pickle.PickleError) as e:
+            except (IOError, pickle.PickleError, EOFError) as e:
                 print(f"Failed to read from cache file {cache_file}: {e}")
 
         # Scan directory if cache fails or force_update is True
