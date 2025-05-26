@@ -72,6 +72,8 @@ class SendProblemsHandler(FileSystemEventHandler):
     def on_any_event(self, event):
         if event.event_type not in self.ALLOWED_EVENT_TYPES:
             return
+        if event.src_path.endswith('cache.pkl') or event.is_directory:
+            return
         if self.callback is not None:
             self.callback()
         if self.refresher is not None:
