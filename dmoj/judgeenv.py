@@ -79,6 +79,7 @@ cli_command: List[str] = []
 
 only_executors: Set[str] = set()
 exclude_executors: Set[str] = set()
+CACHE_FILE_NAME = 'cache.pkl'
 
 
 class StorageNamespaceCache:
@@ -361,7 +362,7 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
         return problem, problem_dir, root_dir, mtime
 
     for dir_glob in problem_globs:
-        cache_file: str = os.path.join(dir_glob.rstrip('*/'), 'cache.pkl')
+        cache_file: str = os.path.join(dir_glob.rstrip('*/'), CACHE_FILE_NAME)
         current_problems = []
         current_root_dirs = []
 

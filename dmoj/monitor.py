@@ -4,7 +4,7 @@ from threading import Event, Thread
 from urllib.request import urlopen
 
 from dmoj import judgeenv
-from dmoj.judgeenv import get_problem_watches, startup_warnings
+from dmoj.judgeenv import get_problem_watches, startup_warnings, CACHE_FILE_NAME
 from dmoj.utils.ansi import print_ansi
 from dmoj.utils.glob_ext import find_glob_root
 
@@ -72,7 +72,7 @@ class SendProblemsHandler(FileSystemEventHandler):
     def on_any_event(self, event):
         if event.event_type not in self.ALLOWED_EVENT_TYPES:
             return
-        if event.src_path.endswith('cache.pkl') or event.is_directory:
+        if event.src_path.endswith(CACHE_FILE_NAME) or event.is_directory:
             return
         if self.callback is not None:
             self.callback()
