@@ -1,3 +1,4 @@
+from dmoj.graders.archived import ArchivedGrader
 from dmoj.graders.bridged import BridgedInteractiveGrader
 from dmoj.graders.communication import CommunicationGrader
 from dmoj.graders.custom import CustomGrader

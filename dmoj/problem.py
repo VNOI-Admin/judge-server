@@ -218,6 +218,8 @@ class Problem:
             return graders.OutputOnlyGrader
         elif 'communication' in self.config:
             return graders.CommunicationGrader
+        elif 'archived' in self.config:
+            return graders.ArchivedGrader
         else:
             return graders.StandardGrader
 
