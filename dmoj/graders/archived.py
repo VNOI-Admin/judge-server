@@ -35,7 +35,7 @@ class ArchivedGrader(StandardGrader):
         checker = self.problem.load_checker(self.problem.config['checker'])
 
         with redirect_stdout(StringIO()) as stream:
-            score = checker.check(self.problem.problem_data.archive, self.zip_file)
+            score = float(checker.check(self.problem.problem_data.archive, self.zip_file))
         result.points = case.points * score
 
         result.result_flag |= [Result.WA, Result.AC][score > 0]
