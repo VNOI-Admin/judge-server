@@ -32,6 +32,8 @@ class CompilerIsolateTracer(IsolateTracer):
                 sys_execve: ALLOW,
                 sys_getcpu: ALLOW,
                 sys_getpgid: ALLOW,
+                sys_getresgid: ALLOW,
+                sys_getresuid: ALLOW,
                 # Directory system calls
                 sys_mkdir: self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=0),
                 sys_mkdirat: self.handle_file_access_at(FilesystemSyscallKind.WRITE, dir_reg=0, file_reg=1),
