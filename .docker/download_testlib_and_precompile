@@ -8,7 +8,7 @@ sed -i '/^#include <cstdio>/a#include <cstdint>' /usr/include/testlib.h
 g++ -std=c++17 $FLAGS /usr/include/testlib.h
 
 # Download and precompile testlib_themis_cms.h
-curl -L https://raw.githubusercontent.com/skyvn97/testlib/customized-testlib/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h
+curl -L https://raw.githubusercontent.com/VNOI-Admin/testlib/master/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h
 sed -i '/^#include <cstdio>/a#include <cstdint>' /usr/include/testlib_themis_cms.h
 mkdir -p /usr/include/testlib_themis_cms.h.gch
 g++ -std=c++17 $FLAGS -DTHEMIS /usr/include/testlib_themis_cms.h -o /usr/include/testlib_themis_cms.h.gch/themis
