@@ -3,7 +3,7 @@ FROM vnoj/runtimes-tier1
 ARG TAG=master
 
 RUN apt-get update && \
-	apt-get install -y --no-install-recommends openjdk-22-jdk-headless openjdk-22-jre-headless golang unzip jq && \
+	apt-get install -y --no-install-recommends openjdk-25-jdk-headless openjdk-25-jre-headless golang unzip jq && \
 	rm -rf /var/lib/apt/lists/*
 
 # Install scratch-run + pypy + kotlin + rust
