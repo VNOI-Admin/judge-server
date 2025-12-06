@@ -475,6 +475,8 @@ class IsolateTracer(dict):
         PR_GET_NAME = 16
         PR_CAPBSET_READ = 23
         PR_SET_THP_DISABLE = 41
+        PR_SVE_SET_VL = 50  # ARM64 SVE
+        PR_SVE_GET_VL = 51  # ARM64 SVE
         PR_SET_VMA = 0x53564D41  # Used on Android
         if debugger.arg0 not in (
             PR_GET_DUMPABLE,
@@ -482,6 +484,8 @@ class IsolateTracer(dict):
             PR_GET_NAME,
             PR_CAPBSET_READ,
             PR_SET_THP_DISABLE,
+            PR_SVE_SET_VL,
+            PR_SVE_GET_VL,
             PR_SET_VMA,
         ):
             raise DeniedSyscall(protection_fault, f'Non-whitelisted prctl option: {debugger.arg0}')
