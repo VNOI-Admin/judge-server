@@ -36,5 +36,6 @@ int main() {
             + self.source_paths
             + self.get_defines()
             + self.get_flags()
+            + [self.get_march_flag()]
             + ['-o', self.get_compiled_file()]
         )
