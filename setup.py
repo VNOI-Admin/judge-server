@@ -175,7 +175,7 @@ setup(
         ]
     },
     ext_modules=cythonize(extensions),
-    install_requires=['watchdog', 'pyyaml', 'termcolor', 'pygments', 'setproctitle', 'pylru', 'requests', 'rouge_score', 'nltk', 'transformers', 'Pillow', 'pandas', 'scikit-learn', 'evaluate', 'sacrebleu'],
+    install_requires=['tqdm', 'numpy', 'sacrebleu', 'torch', 'torchvision', 'sentence-transformers', 'bert-score', 'watchdog', 'pyyaml', 'termcolor', 'pygments', 'setproctitle', 'pylru', 'requests', 'rouge_score', 'nltk', 'transformers', 'Pillow', 'pandas', 'scikit-learn', 'evaluate', 'sacrebleu'],
     tests_require=['requests', 'parameterized'],
     extras_require={'test': ['requests', 'parameterized']},
     cmdclass={'build_ext': build_ext_dmoj},

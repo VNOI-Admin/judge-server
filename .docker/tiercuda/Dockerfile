@@ -1,0 +1,31 @@
+FROM vnoj/runtimes-tiercuda
+
+ARG TAG=master
+
+RUN apt-get update && \
+	apt-get install -y --no-install-recommends unzip && \
+	rm -rf /var/lib/apt/lists/*
+
+# Install scratch interpreter
+RUN ARCH=$([ $(uname -m) = "x86_64" ] && echo "amd64" || echo "arm64") && \
+	curl --location -o scratch-run.zip $(curl -s https://api.github.com/repos/VNOI-Admin/scratch-run/releases/latest | grep -o -m 1 "https://github\.com.*.*linux_$ARCH\.zip") && \
+	unzip scratch-run.zip && \
+	mv scratch-run /usr/bin/scratch-run && \
+	rm scratch-run.zip
+
+RUN mkdir /judge /problems
+
+COPY --from=repo . /judge
+
+RUN cd /judge && \
+	python3 -m venv --prompt=DMOJ /env && \
+	/env/bin/pip3 install cython setuptools && \
+	/env/bin/pip3 install -e . && \
+	/env/bin/python3 setup.py develop && \
+	HOME=~judge . ~judge/.profile && \
+	runuser -u judge -w PATH -- /env/bin/dmoj-autoconf -V > /judge-runtime-paths.yml && \
+	echo '  crt_x86_in_lib32: true' >> /judge-runtime-paths.yml && \
+	mkdir -p /usr/lib/fpc/ && cp /judge/asset/Windows.pas /usr/lib/fpc/ && fpc -Fe/dev/stderr -O2 /usr/lib/fpc/Windows.pas && \
+	/judge/.docker/download_testlib_and_precompile
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/judge/.docker/entry"]

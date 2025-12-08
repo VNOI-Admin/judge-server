@@ -609,7 +609,7 @@ def make_host_port(judgeenv):
 
 def main():  # pragma: no cover
     unicode_stdout_stderr()
-    builtin_int_patch.apply()
+    #builtin_int_patch.apply()  # we're using python3.12 with this protection builtin so this is not needed
 
     if not sanity_check():
         return 1

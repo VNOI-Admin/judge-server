@@ -1,4 +1,4 @@
-GIT_TAG ?= master
+GIT_TAG ?= ai
 TAG ?= latest
 
 .PHONY: all judge-tier1 judge-tier2 judge-tier3 judge-tiervnoj
@@ -16,3 +16,6 @@ judge-tier3:
 
 judge-tiervnoj:
 	docker build --build-arg TAG="${GIT_TAG}" -t vnoj/judge-tiervnoj -t vnoj/judge-tiervnoj:$(TAG) tiervnoj
+
+judge-tiercuda:
+	docker build --build-arg TAG="${GIT_TAG}" --build-context repo=../ -t vnoj/judge-tiercuda -t vnoj/judge-tiercuda:$(TAG) tiercuda
