@@ -4,64 +4,64 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    - name: Install Black and Flake8
-      run: |
-        pip install black==22.3 flake8==5.0.4 flake8-future-import flake8-logging-format flake8-import-order flake8-quotes flake8-black
-    - name: Run Flake8
-      run: |
-        black --version
-        flake8 --version
-        flake8
-    - name: Install clang-format 12
-      run: |
-        wget -O clang-format https://github.com/DMOJ/clang-tools-static-binaries/releases/download/master-5ea3d18c/clang-format-12_linux-amd64
-        chmod a+x ./clang-format
-    - name: Run clang-format
-      run: find dmoj/ \( -name '*.h' -or -name '*.cpp' -or -name '*.c' \) -not -name _cptbox.cpp -print0 | xargs -0 ./clang-format --dry-run -Werror --color
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install Black and Flake8
+        run: |
+          pip install black==22.3 flake8==5.0.4 flake8-logging flake8-import-order flake8-quotes flake8-black
+      - name: Run Flake8
+        run: |
+          black --version
+          flake8 --version
+          flake8
+      - name: Install clang-format 12
+        run: |
+          wget -O clang-format https://github.com/DMOJ/clang-tools-static-binaries/releases/download/master-5ea3d18c/clang-format-12_linux-amd64
+          chmod a+x ./clang-format
+      - name: Run clang-format
+        run: find dmoj/ \( -name '*.h' -or -name '*.cpp' -or -name '*.c' \) -not -name _cptbox.cpp -print0 | xargs -0 ./clang-format --dry-run -Werror --color
   mypy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    - name: Install dependencies and mypy
-      run: |
-        pip install cython mypy types-termcolor types-requests types-PyYAML
-        pip install -r requirements.txt
-    - name: Verify mypy types
-      run: |
-        mypy --version
-        mypy dmoj
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install dependencies and mypy
+        run: |
+          pip install cython mypy types-termcolor types-requests types-PyYAML
+          pip install -r requirements.txt
+      - name: Verify mypy types
+        run: |
+          mypy --version
+          mypy dmoj
   test-sdist:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    - name: Install build dependencies
-      run: pip install cython
-    - name: Create sdist
-      run: python setup.py sdist
-    - name: Install test dependencies
-      run: sudo apt-get install -y libseccomp-dev
-    - name: Test sdist
-      run: |
-        pip install dist/*.tar.gz
-        dmoj-autoconf
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install build dependencies
+        run: pip install cython setuptools
+      - name: Create sdist
+        run: python setup.py sdist
+      - name: Install test dependencies
+        run: sudo apt-get install -y libseccomp-dev
+      - name: Test sdist
+        run: |
+          pip install dist/*.tar.gz
+          dmoj-autoconf
   amd64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ '3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13' ]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Download docker image
