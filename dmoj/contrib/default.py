@@ -25,6 +25,7 @@ class ContribModule(BaseContribModule):
         return '{batch_no} {case_no}'
 
     @classmethod
+    @BaseContribModule.catch_internal_error
     def parse_return_code(
         cls,
         proc: 'TracedPopen',
