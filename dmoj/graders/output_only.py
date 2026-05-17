@@ -35,7 +35,11 @@ class OutputOnlyGrader(StandardGrader):
             result.result_flag = Result.OLE
             return
 
-        result.proc_output = self.zip_file.open(output_name).read()
+        try:
+            result.proc_output = self.zip_file.open(output_name).read()
+        except Exception as e:
+            result.feedback = f'Invalid output file: {repr(e)}'
+            result.result_flag = Result.WA
 
     def get_zip_file(self) -> ZipFile:
         zip_data = download_source_code(utf8text(self.source).strip(), self.problem.meta.get('file-size-limit', 1))
