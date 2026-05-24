@@ -9,10 +9,11 @@ from dmoj.utils.unicode import utf8bytes
 
 class SignatureGrader(StandardGrader):
     def _generate_binary(self) -> BaseExecutor:
-        cpp_siggraders = ('C', 'C11', 'CPP03', 'CPP11', 'CPP14', 'CPP17', 'CPP20', 'CPPTHEMIS', 'CLANG', 'CLANGX')
-        java_siggraders = ('JAVA', 'JAVA8', 'JAVA9', 'JAVA10', 'JAVA11', 'JAVA15', 'JAVA17')
+        executor = executors[self.language].Executor
+        is_signature_gradable = getattr(executor, 'is_signature_gradable', False)
+        ext = getattr(executor, 'ext', None)
 
-        if self.language in cpp_siggraders:
+        if is_signature_gradable and ext in ('c', 'cpp'):
             aux_sources = {}
             handler_data = self.problem.config['signature_grader']
 
@@ -27,14 +28,14 @@ class SignatureGrader(StandardGrader):
 
             aux_sources[handler_data['header']] = header
             entry = entry_point
-            return executors[self.language].Executor(
+            return executor(
                 self.problem.id,
                 entry,
                 storage_namespace=self.problem.storage_namespace,
                 aux_sources=aux_sources,
                 defines=['-DSIGNATURE_GRADER'],
             )
-        elif self.language in java_siggraders:
+        elif is_signature_gradable and ext == 'java':
             aux_sources = {}
             handler_data = self.problem.config['signature_grader']['java']
 
@@ -47,7 +48,7 @@ class SignatureGrader(StandardGrader):
                 entry = self.source
                 aux_sources[self.problem.id + '_lib'] = entry_point
 
-            return executors[self.language].Executor(
+            return executor(
                 self.problem.id, entry, storage_namespace=self.problem.storage_namespace, aux_sources=aux_sources
             )
         else:

@@ -68,6 +68,10 @@ class JavaExecutor(SingleDigitVersionMixin, CompiledExecutor):
         'thr_set_name',
         'getcpu',
     ]
+    compiler_syscalls = [
+        'getresuid',
+        'getresgid',
+    ]
 
     jvm_regex: Optional[str] = None
     _class_name: Optional[str]
@@ -251,6 +255,8 @@ class JavaExecutor(SingleDigitVersionMixin, CompiledExecutor):
 
 
 class JavacExecutor(JavaExecutor):
+    is_signature_gradable = True
+
     def create_files(self, problem_id: str, source_code: bytes, *args, **kwargs) -> None:
         super().create_files(problem_id, source_code, *args, **kwargs)
         self.source_paths = []

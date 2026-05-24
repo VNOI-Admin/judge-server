@@ -138,6 +138,7 @@ sys_extattr_set_fd: int
 sys_extattr_set_file: int
 sys_extattr_set_link: int
 sys_extattrctl: int
+sys_exterrctl: int
 sys_faccessat: int
 sys_faccessat2: int
 sys_fadvise64: int
@@ -153,6 +154,7 @@ sys_fchmodat2: int
 sys_fchown: int
 sys_fchown32: int
 sys_fchownat: int
+sys_fchroot: int
 sys_fcntl: int
 sys_fcntl64: int
 sys_fdatasync: int
@@ -167,6 +169,8 @@ sys_fhopen: int
 sys_fhreadlink: int
 sys_fhstat: int
 sys_fhstatfs: int
+sys_file_getattr: int
+sys_file_setattr: int
 sys_finit_module: int
 sys_flistxattr: int
 sys_flock: int
@@ -244,6 +248,7 @@ sys_getresgid32: int
 sys_getresuid: int
 sys_getresuid32: int
 sys_getrlimit: int
+sys_getrlimitusage: int
 sys_getrusage: int
 sys_getsid: int
 sys_getsockname: int
@@ -253,11 +258,12 @@ sys_gettimeofday: int
 sys_getuid: int
 sys_getuid32: int
 sys_getxattr: int
-sys_gssd_syscall: int
+sys_getxattrat: int
 sys_gtty: int
 sys_idle: int
 sys_init_module: int
 sys_inotify_add_watch: int
+sys_inotify_add_watch_at: int
 sys_inotify_init: int
 sys_inotify_init1: int
 sys_inotify_rm_watch: int
@@ -280,8 +286,10 @@ sys_ipc: int
 sys_issetugid: int
 sys_jail: int
 sys_jail_attach: int
+sys_jail_attach_jd: int
 sys_jail_get: int
 sys_jail_remove: int
+sys_jail_remove_jd: int
 sys_jail_set: int
 sys_kcmp: int
 sys_kenv: int
@@ -289,6 +297,7 @@ sys_kevent: int
 sys_kexec_file_load: int
 sys_kexec_load: int
 sys_keyctl: int
+sys_kgssapi: int
 sys_kill: int
 sys_killpg: int
 sys_kldfind: int
@@ -347,7 +356,9 @@ sys_linkat: int
 sys_lio_listio: int
 sys_listen: int
 sys_listmount: int
+sys_listns: int
 sys_listxattr: int
+sys_listxattrat: int
 sys_llistxattr: int
 sys_llseek: int
 sys_lock: int
@@ -450,6 +461,7 @@ sys_olduname: int
 sys_open: int
 sys_open_by_handle_at: int
 sys_open_tree: int
+sys_open_tree_attr: int
 sys_openat: int
 sys_openat2: int
 sys_openbsd_poll: int
@@ -461,6 +473,8 @@ sys_pciconfig_write: int
 sys_pdfork: int
 sys_pdgetpid: int
 sys_pdkill: int
+sys_pdrfork: int
+sys_pdwait: int
 sys_perf_event_open: int
 sys_personality: int
 sys_pidfd_getfd: int
@@ -524,6 +538,7 @@ sys_recvmmsg_time64: int
 sys_recvmsg: int
 sys_remap_file_pages: int
 sys_removexattr: int
+sys_removexattrat: int
 sys_rename: int
 sys_renameat: int
 sys_renameat2: int
@@ -534,6 +549,7 @@ sys_rfork: int
 sys_rmdir: int
 sys_rpctls_syscall: int
 sys_rseq: int
+sys_rseq_slice_yield: int
 sys_rt_sigaction: int
 sys_rt_sigpending: int
 sys_rt_sigprocmask: int
@@ -589,6 +605,7 @@ sys_setaudit: int
 sys_setaudit_addr: int
 sys_setauid: int
 sys_setcontext: int
+sys_setcred: int
 sys_setdomainname: int
 sys_setegid: int
 sys_seteuid: int
@@ -626,6 +643,7 @@ sys_setuid: int
 sys_setuid32: int
 sys_setup: int
 sys_setxattr: int
+sys_setxattrat: int
 sys_sgetmask: int
 sys_shm_open: int
 sys_shm_open2: int
@@ -732,6 +750,8 @@ sys_unlink: int
 sys_unlinkat: int
 sys_unmount: int
 sys_unshare: int
+sys_uprobe: int
+sys_uretprobe: int
 sys_uselib: int
 sys_userfaultfd: int
 sys_ustat: int

@@ -82,6 +82,10 @@ class Judge:
         self.updater_signal = threading.Event()
         self.updater = threading.Thread(target=self._updater_thread)
 
+        self.problem_count = len(get_supported_problems_and_mtimes())
+        self.submissions_graded = 0
+        self.case_verdicts = {code: 0 for code in Result.CODE_DISPLAY_ORDER + ('AC',)}
+
     @property
     def current_submission(self):
         worker = self.current_judge_worker
@@ -103,7 +107,9 @@ class Judge:
             #    thread.join()
 
             try:
-                self.packet_manager.supported_problems_packet(get_supported_problems_and_mtimes(force_update=True))
+                problems = get_supported_problems_and_mtimes(force_update=True)
+                self.problem_count = len(problems)
+                self.packet_manager.supported_problems_packet(problems)
 
                 # When copying large test file, updater_signal can be set multiple times in very short burst
                 # (e.g. 10 times during 0.2s). Meanwhile, bridged can take up to 1 seconds to process updates.
@@ -117,6 +123,10 @@ class Judge:
         Pushes current problem set to server.
         """
         self.updater_signal.set()
+
+    @property
+    def grading(self):
+        return self._grading_lock.locked()
 
     def begin_grading(self, submission: Submission, report=logger.info, blocking=False) -> None:
         # Ensure only one submission is running at a time; this lock is released at the end of submission grading.
@@ -207,6 +217,7 @@ class Judge:
 
     def _ipc_grading_end(self, _report) -> None:
         self.packet_manager.grading_end_packet()
+        self.submissions_graded += 1
 
     def _ipc_result(self, report, batch_number: Optional[int], case_number: int, result: Result) -> None:
         codes = result.readable_codes()
@@ -230,6 +241,7 @@ class Judge:
         case_padding = '  ' if batch_number is not None else ''
         report(ansi_style('%sTest case %2d %-3s %s' % (case_padding, case_number, colored_codes[0], case_info)))
         self.packet_manager.test_case_status_packet(case_number, result)
+        self.case_verdicts[codes[0]] += 1
 
     def _ipc_batch_begin(self, report, batch_number: int) -> None:
         self.packet_manager.batch_begin_packet()

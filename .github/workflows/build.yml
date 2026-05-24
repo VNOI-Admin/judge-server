@@ -4,14 +4,14 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v6
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: '3.11'
+        python-version: '3.14'
     - name: Install Black and Flake8
       run: |
-        pip install black==22.3 flake8==5.0.4 flake8-future-import flake8-logging-format flake8-import-order flake8-quotes flake8-black
+        pip install black==26.3 flake8==7.3 flake8-logging flake8-import-order flake8-quotes flake8-black
     - name: Run Flake8
       run: |
         black --version
@@ -26,11 +26,11 @@ jobs:
   mypy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v6
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: '3.11'
+        python-version: '3.14'
     - name: Install dependencies and mypy
       run: |
         pip install cython mypy types-termcolor types-requests types-PyYAML
@@ -42,13 +42,13 @@ jobs:
   test-sdist:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v6
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
       with:
-        python-version: '3.11'
+        python-version: '3.14'
     - name: Install build dependencies
-      run: pip install cython
+      run: pip install cython setuptools
     - name: Create sdist
       run: python setup.py sdist
     - name: Install test dependencies
@@ -61,9 +61,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ '3.10', '3.11', '3.12', '3.13' ]
+        python-version: ['3.10', '3.11', '3.12', '3.13']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Download docker image
         run: docker pull vnoj/runtimes-tier3
       - name: Install python
@@ -103,14 +103,19 @@ jobs:
           #!/bin/bash -e
           . ~/.profile
           cd /code
+
+          cleanup() {
+            "$PYTHON" -m coverage combine
+            "$PYTHON" -m coverage xml
+          }
+          trap cleanup EXIT
+
           "$PYTHON" -m coverage run -m unittest discover dmoj/tests/
           "$PYTHON" -m coverage run --append .docker.test.py
-          "$PYTHON" -m coverage combine
-          "$PYTHON" -m coverage xml
           EOF
 
           chmod a+x run run-su
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/docker-cache
           key: ${{ runner.os }}-python-${{ matrix.python-version }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -123,6 +128,8 @@ jobs:
       - name: Execute tests in docker
         run: docker run -e PYTHON_VERSION="${{ matrix.python-version }}" -v "$(pwd):/code" -v "$HOME/docker-cache:/root/.cache" --cap-add=SYS_PTRACE vnoj/runtimes-tier3
       - name: Upload coverage data
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Prepare cache for storage
         run: sudo chown -R "$USER:$USER" "$HOME/docker-cache"

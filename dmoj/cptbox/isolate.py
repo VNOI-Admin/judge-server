@@ -212,6 +212,7 @@ class IsolateTracer(dict):
                     sys_thr_exit: ALLOW,
                     sys_thr_kill: ALLOW,
                     sys_thr_self: ALLOW,
+                    sys_thr_wake: ALLOW,
                     sys_sigsuspend: ALLOW,
                     sys_clock_getcpuclockid2: ALLOW,
                     sys_fstatfs: ALLOW,
@@ -514,7 +515,7 @@ def wrap_access_check(syscall: int, check: AccessChecker) -> HandlerCallback:
     return inner
 
 
-def protection_fault(self, debugger: Debugger) -> bool:
+def protection_fault(debugger: Debugger) -> bool:
     return False
 
 

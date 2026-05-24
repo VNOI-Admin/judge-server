@@ -21,8 +21,9 @@ class Executor(CompiledExecutor):
     data_grace = 98304  # Go uses data segment for heap arena map
     address_grace = 786432
     command = 'go'
-    syscalls = ['mincore', 'mlock', 'setrlimit', 'eventfd2']
-    compiler_syscalls = ['capget', 'copy_file_range', 'setrlimit', 'pidfd_open', 'pidfd_send_signal']
+    syscalls = ['mincore', 'pselect6', 'mlock', 'setrlimit', 'eventfd2']
+    compiler_syscalls = ['copy_file_range', 'setrlimit', 'pidfd_open', 'pidfd_send_signal']
+    compiler_time_limit = 20
     test_name = 'echo'
     test_program = """\
 package main
