@@ -65,10 +65,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Download docker image
-        run: docker pull dmoj/runtimes-tier3
+        run: docker pull vnoj/runtimes-tier3
       - name: Install python
         run: |
-          curl -L "https://github.com/DMOJ/runtimes-python/releases/latest/download/python${{ matrix.python-version }}-amd64.tar.gz" |
+          curl -L "https://github.com/VNOI-Admin/runtimes-python/releases/latest/download/python${{ matrix.python-version }}-amd64.tar.gz" |
           tar -xz
       - name: Create docker scripts
         run: |
@@ -113,7 +113,7 @@ jobs:
           mkdir -p "$HOME/docker-cache/pip"
           sudo chown root:root -R "$HOME/docker-cache"
       - name: Execute tests in docker
-        run: docker run -e PYTHON_VERSION="${{ matrix.python-version }}" -v "$(pwd):/code" -v "$HOME/docker-cache:/root/.cache" --cap-add=SYS_PTRACE dmoj/runtimes-tier3
+        run: docker run -e PYTHON_VERSION="${{ matrix.python-version }}" -v "$(pwd):/code" -v "$HOME/docker-cache:/root/.cache" --cap-add=SYS_PTRACE vnoj/runtimes-tier3
       - name: Upload coverage data
         uses: codecov/codecov-action@v6
         with:
@@ -128,10 +128,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Download docker image
-        run: docker pull dmoj/runtimes-tier3
+        run: docker pull vnoj/runtimes-tier3
       - name: Install python
         run: |
-          curl -L "https://github.com/DMOJ/runtimes-python/releases/latest/download/python${{ matrix.python-version }}-aarch64.tar.gz" |
+          curl -L "https://github.com/VNOI-Admin/runtimes-python/releases/latest/download/python${{ matrix.python-version }}-aarch64.tar.gz" |
           tar -xz
       - name: Create docker scripts
         run: |
@@ -176,7 +176,7 @@ jobs:
           mkdir -p "$HOME/docker-cache/pip"
           sudo chown root:root -R "$HOME/docker-cache"
       - name: Execute tests in docker
-        run: docker run -e PYTHON_VERSION="${{ matrix.python-version }}" -v "$(pwd):/code" -v "$HOME/docker-cache:/root/.cache" --cap-add=SYS_PTRACE dmoj/runtimes-tier3
+        run: docker run -e PYTHON_VERSION="${{ matrix.python-version }}" -v "$(pwd):/code" -v "$HOME/docker-cache:/root/.cache" --cap-add=SYS_PTRACE vnoj/runtimes-tier3
       - name: Upload coverage data
         uses: codecov/codecov-action@v6
         with:
