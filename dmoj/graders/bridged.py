@@ -94,7 +94,8 @@ class BridgedInteractiveGrader(StandardGrader):
         )
 
         with mktemp(judge_output) as answer_file:
-            input_path = case.input_data_io().to_path()
+            input_io = case.input_data_io()
+            input_path = input_io.to_path()
 
             # Take advantage of File IO to support log file (required by testlib).
             # Collision is not a concern here because the log file, which is just a symlink to /dev/fd/4,
@@ -117,6 +118,7 @@ class BridgedInteractiveGrader(StandardGrader):
                 stderr=subprocess.PIPE,
                 file_io=ConfigNode({'output': interactor_log_file}),
                 extra_fs=[ExactFile(input_path)],
+                keep_fds=[input_io.fileno()],
             )
 
             os.close(self._interactor_stdin_pipe)

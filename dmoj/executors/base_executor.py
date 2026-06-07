@@ -303,6 +303,10 @@ class BaseExecutor(metaclass=ExecutorMeta):
         if 'path_whitelist' not in kwargs:
             kwargs['path_whitelist'] = []
 
+        # fds (e.g. memfd-backed input) the child must keep open so it can reach them as its own
+        # /proc/self/fd/<n> (see MemfdIO.to_path / Landlock).
+        keep_fds = list(kwargs.pop('keep_fds', None) or [])
+
         stdin, stdout = None, None
         if isinstance(kwargs.get('file_io'), ConfigNode):
             # Here's roughly how File IO works:
@@ -321,6 +325,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
                 stdin = subprocess.PIPE
                 input = os.path.abspath(os.path.join(self._dir, file_io['input']))
                 create_symlink(passed_stdin.to_path(), input)
+                keep_fds.append(passed_stdin.fileno())
                 kwargs['path_case_fixes'].append(input)
                 kwargs['path_whitelist'].append(input)
 
@@ -369,6 +374,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
             nproc=self.get_nproc(),
             fsize=self.fsize,
             cpu_affinity=env.submission_cpu_affinity,
+            keep_fds=keep_fds,
         )
 
     @classmethod
