@@ -8,6 +8,7 @@ from typing import cast
 import yaml
 
 from dmoj import contrib, executors, judgeenv
+from dmoj.cptbox import has_landlock
 from dmoj.judge import Judge, Submission
 from dmoj.judgeenv import get_problem_root, get_supported_problems
 from dmoj.packet import PacketManager
@@ -337,6 +338,11 @@ class Tester:
 
 
 def main():
+    if has_landlock():
+        print('Running testsuite with landlock and seccomp...')
+    else:
+        print('Running testsuite with just seccomp...')
+
     judgeenv.load_env(cli=True, testsuite=True)
 
     logging.basicConfig(
