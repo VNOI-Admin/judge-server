@@ -12,6 +12,7 @@
 #define PTBOX_SPAWN_FAIL_SETRLIMIT2   207
 #define PTBOX_SPAWN_FAIL_CHDIR        208
 #define PTBOX_SPAWN_FAIL_DUP2         209
+#define PTBOX_SPAWN_FAIL_LANDLOCK     210
 
 struct child_config {
     unsigned long memory;
@@ -30,7 +31,17 @@ struct child_config {
     int *seccomp_handlers;
     // 64 cores ought to be enough for anyone.
     unsigned long cpu_affinity_mask;
+    // Landlock filesystem rules: NULL-terminated arrays of paths, by access kind.
+    const char **landlock_read_exact_files;
+    const char **landlock_read_exact_dirs;
+    const char **landlock_read_recursive_dirs;
+    const char **landlock_write_exact_files;
+    const char **landlock_write_exact_dirs;
+    const char **landlock_write_recursive_dirs;
 };
+
+// Returns the Landlock ABI version (>=1), 0 if Landlock is unavailable/disabled, or -1 on error.
+int get_landlock_version();
 
 void cptbox_closefrom(int lowfd);
 int cptbox_child_run(const struct child_config *config);

@@ -44,6 +44,7 @@ BASE_FILESYSTEM: List[FilesystemAccessRule] = [
     ExactFile('/dev/urandom'),
     ExactFile('/dev/random'),
     *USR_DIR,
+    RecursiveDir('/bin'),
     RecursiveDir('/lib'),
     RecursiveDir('/lib32'),
     RecursiveDir('/lib64'),
