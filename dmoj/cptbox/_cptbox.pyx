@@ -129,9 +129,10 @@ cdef extern from 'helper.h' nogil:
         const char **landlock_write_exact_files
         const char **landlock_write_exact_dirs
         const char **landlock_write_recursive_dirs
+        const int *keep_open_fds
 
     int get_landlock_version()
-    void cptbox_closefrom(int lowfd)
+    void cptbox_closefrom(int lowfd, const int *keep_fds)
     int cptbox_child_run(child_config *)
     char *_bsd_get_proc_cwd "bsd_get_proc_cwd"(pid_t pid)
     char *_bsd_get_proc_fdno "bsd_get_proc_fdno"(pid_t pid, int fdno)
@@ -454,6 +455,7 @@ cdef class Process:
     cdef public unsigned long _cpu_affinity_mask
     cdef public object landlock_read_exact_files, landlock_read_exact_dirs, landlock_read_recursive_dirs
     cdef public object landlock_write_exact_files, landlock_write_exact_dirs, landlock_write_recursive_dirs
+    cdef public object keep_fds
     cdef unsigned long _max_memory
     cdef unsigned long _init_nvcsw, _init_nivcsw
 
@@ -474,6 +476,7 @@ cdef class Process:
         self.landlock_write_exact_files = []
         self.landlock_write_exact_dirs = []
         self.landlock_write_recursive_dirs = []
+        self.keep_fds = []
 
         self.debugger = self.create_debugger()
         self.process = new pt_process(self.debugger.thisptr)
@@ -530,6 +533,8 @@ cdef class Process:
 
     cpdef _spawn(self, file, args, env=(), chdir=''):
         cdef child_config config
+        cdef int* keep_arr
+        cdef Py_ssize_t n_keep
         config.argv = NULL
         config.envp = NULL
         config.seccomp_handlers = NULL
@@ -539,6 +544,7 @@ cdef class Process:
         config.landlock_write_exact_files = NULL
         config.landlock_write_exact_dirs = NULL
         config.landlock_write_recursive_dirs = NULL
+        config.keep_open_fds = NULL
 
         try:
             config.address_space = self._child_address
@@ -574,6 +580,15 @@ cdef class Process:
             config.landlock_write_exact_dirs = <const char**>alloc_byte_array(self.landlock_write_exact_dirs)
             config.landlock_write_recursive_dirs = <const char**>alloc_byte_array(self.landlock_write_recursive_dirs)
 
+            n_keep = len(self.keep_fds)
+            keep_arr = <int*>malloc(sizeof(int) * (n_keep + 1))
+            if not keep_arr:
+                PyErr_NoMemory()
+            for j in range(n_keep):
+                keep_arr[j] = self.keep_fds[j]
+            keep_arr[n_keep] = -1
+            config.keep_open_fds = keep_arr
+
             if self.process.spawn(pt_child, &config):
                 raise RuntimeError('failed to spawn child')
         finally:
@@ -586,6 +601,7 @@ cdef class Process:
             free(<void*>config.landlock_write_exact_files)
             free(<void*>config.landlock_write_exact_dirs)
             free(<void*>config.landlock_write_recursive_dirs)
+            free(<void*>config.keep_open_fds)
 
     cpdef _monitor(self):
         cdef int exitcode

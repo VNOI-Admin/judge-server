@@ -331,12 +331,17 @@ class BaseExecutor(metaclass=ExecutorMeta):
         if 'path_whitelist' not in kwargs:
             kwargs['path_whitelist'] = []
 
+        # fds (e.g. memfd-backed input) the child must keep open so it can reach them as its own
+        # /proc/self/fd/<n> (see MemfdIO.to_path / Landlock).
+        keep_fds = list(kwargs.pop('keep_fds', None) or [])
+
         stdin = stdout = None
         if isinstance(kwargs.get('file_io'), ConfigNode):
             # The input and output files are symlinks to the caller's own memfds (passed as stdin and
-            # stdout), reached cross-process via /proc/<judgepid>/fd/<n>: input is the read-only input
-            # memfd, output is the stdout memfd the caller reads back afterwards. The program talks to
-            # the files, so its own stdin/stdout go to /dev/null.
+            # stdout), which the child inherits and reaches as its own /proc/self/fd/<n> (kept open
+            # past closefrom via keep_fds): input is the read-only input memfd, output is the stdout
+            # memfd the caller reads back afterwards. The program talks to the files, so its own
+            # stdin/stdout go to /dev/null.
             file_io = kwargs['file_io']
 
             if isinstance(file_io.get('input'), str):
@@ -346,6 +351,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
                 stdin = subprocess.DEVNULL
                 input = os.path.abspath(os.path.join(self._dir, file_io['input']))
                 create_symlink(passed_stdin.to_path(), input)
+                keep_fds.append(passed_stdin.fileno())
                 kwargs['path_case_fixes'].append(input)
                 kwargs['path_whitelist'].append(input)
 
@@ -356,6 +362,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
                 stdout = subprocess.DEVNULL
                 output = os.path.abspath(os.path.join(self._dir, file_io['output']))
                 create_symlink(passed_stdout.to_path(), output)
+                keep_fds.append(passed_stdout.fileno())
                 kwargs['path_case_fixes'].append(output)
                 kwargs['path_whitelist'].append(output)
 
@@ -397,6 +404,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
             nproc=self.get_nproc(),
             fsize=kwargs.get('fsize', self.fsize),
             cpu_affinity=env.submission_cpu_affinity,
+            keep_fds=keep_fds,
         )
 
     @classmethod

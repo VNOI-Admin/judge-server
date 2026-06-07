@@ -38,12 +38,16 @@ struct child_config {
     const char **landlock_write_exact_files;
     const char **landlock_write_exact_dirs;
     const char **landlock_write_recursive_dirs;
+    // -1-terminated list of fds the child should keep open past the closefrom() sweep, so a
+    // consumer can access them as its own /proc/self/fd/<n> (which Landlock permits, unlike a
+    // cross-process /proc/<pid>/fd/<n>).
+    const int *keep_open_fds;
 };
 
 // Returns the Landlock ABI version (>=1), 0 if Landlock is unavailable/disabled, or -1 on error.
 int get_landlock_version();
 
-void cptbox_closefrom(int lowfd);
+void cptbox_closefrom(int lowfd, const int *keep_fds);
 int cptbox_child_run(const struct child_config *config);
 
 char *bsd_get_proc_cwd(pid_t pid);

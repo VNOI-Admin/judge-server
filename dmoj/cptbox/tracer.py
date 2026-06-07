@@ -120,8 +120,10 @@ class TracedPopen(Process):
         cwd: bytes = b'',
         wall_time: Optional[float] = None,
         cpu_affinity: Optional[List[int]] = None,
+        keep_fds: Optional[List[int]] = None,
     ) -> None:
         self._executable = executable
+        self.keep_fds = list(keep_fds or [])
 
         if BAD_SECCOMP:
             raise RuntimeError(f'Sandbox requires Linux 4.8+ to use seccomp, you have {os.uname().release}')

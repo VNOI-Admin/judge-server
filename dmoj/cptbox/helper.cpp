@@ -50,6 +50,8 @@ static inline void cptbox_close_fd(int fd) {
         ;
 }
 
+static inline bool fd_kept(int fd, const int *keep_fds);
+
 int cptbox_child_run(const struct child_config *config) {
 #ifndef __FreeBSD__
     // There is no ASLR on FreeBSD, but disable it elsewhere
@@ -199,7 +201,7 @@ seccomp_setup:
         return PTBOX_SPAWN_FAIL_DUP2;
     if (config->stderr_ >= 0 && dup2(config->stderr_, 2) < 0)
         return PTBOX_SPAWN_FAIL_DUP2;
-    cptbox_closefrom(3);
+    cptbox_closefrom(3, config->keep_open_fds);
 
     // All these limits should be dropped after initializing seccomp, since seccomp allocates
     // memory, and if an arena isn't sufficiently free it could force seccomp into an OOM
@@ -266,15 +268,24 @@ static int pos_int_from_ascii(char *name) {
     return num;
 }
 
-static void cptbox_closefrom_brute(int lowfd) {
+static inline bool fd_kept(int fd, const int *keep_fds) {
+    if (keep_fds)
+        for (const int *k = keep_fds; *k >= 0; ++k)
+            if (*k == fd)
+                return true;
+    return false;
+}
+
+static void cptbox_closefrom_brute(int lowfd, const int *keep_fds) {
     int max_fd = sysconf(_SC_OPEN_MAX);
     if (max_fd < 0)
         max_fd = 16384;
     for (; lowfd <= max_fd; ++lowfd)
-        cptbox_close_fd(lowfd);
+        if (!fd_kept(lowfd, keep_fds))
+            cptbox_close_fd(lowfd);
 }
 
-static inline void cptbox_closefrom_dirent(int lowfd) {
+static inline void cptbox_closefrom_dirent(int lowfd, const int *keep_fds) {
     DIR *d = opendir(FD_DIR);
     dirent *dir;
 
@@ -283,16 +294,16 @@ static inline void cptbox_closefrom_dirent(int lowfd) {
         errno = 0;
         while ((dir = readdir(d))) {
             int fd = pos_int_from_ascii(dir->d_name);
-            if (fd < lowfd || fd == fd_dirent)
+            if (fd < lowfd || fd == fd_dirent || fd_kept(fd, keep_fds))
                 continue;
             cptbox_close_fd(fd);
             errno = 0;
         }
         if (errno)
-            cptbox_closefrom_brute(lowfd);
+            cptbox_closefrom_brute(lowfd, keep_fds);
         closedir(d);
     } else
-        cptbox_closefrom_brute(lowfd);
+        cptbox_closefrom_brute(lowfd, keep_fds);
 }
 
 // Borrowing some SYS_getdents64 magic from python's _posixsubprocess.
@@ -313,10 +324,10 @@ struct linux_dirent64 {
     char d_name[256];
 };
 
-static inline void cptbox_closefrom_getdents(int lowfd) {
+static inline void cptbox_closefrom_getdents(int lowfd, const int *keep_fds) {
     int fd_dir = open(FD_DIR, O_RDONLY, 0);
     if (fd_dir == -1) {
-        cptbox_closefrom_brute(lowfd);
+        cptbox_closefrom_brute(lowfd, keep_fds);
     } else {
         char buffer[sizeof(struct linux_dirent64)];
         int bytes;
@@ -328,7 +339,7 @@ static inline void cptbox_closefrom_getdents(int lowfd) {
                 entry = (struct linux_dirent64 *) (buffer + offset);
                 if ((fd = pos_int_from_ascii(entry->d_name)) < 0)
                     continue; /* Not a number. */
-                if (fd != fd_dir && fd >= lowfd)
+                if (fd != fd_dir && fd >= lowfd && !fd_kept(fd, keep_fds))
                     cptbox_close_fd(fd);
             }
         }
@@ -337,13 +348,17 @@ static inline void cptbox_closefrom_getdents(int lowfd) {
 }
 #endif
 
-void cptbox_closefrom(int lowfd) {
+void cptbox_closefrom(int lowfd, const int *keep_fds) {
 #if defined(__FreeBSD__)
-    closefrom(lowfd);
+    // closefrom(2) can't skip individual fds; fall back to the manual sweep when some must be kept.
+    if (keep_fds && keep_fds[0] >= 0)
+        cptbox_closefrom_dirent(lowfd, keep_fds);
+    else
+        closefrom(lowfd);
 #elif defined(__linux__)
-    cptbox_closefrom_getdents(lowfd);
+    cptbox_closefrom_getdents(lowfd, keep_fds);
 #else
-    cptbox_closefrom_dirent(lowfd);
+    cptbox_closefrom_dirent(lowfd, keep_fds);
 #endif
 }
 

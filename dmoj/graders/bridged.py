@@ -94,7 +94,8 @@ class BridgedInteractiveGrader(StandardGrader):
         )
 
         with mktemp(judge_output) as answer_file:
-            input_path = case.input_data_io().to_path()
+            input_io = case.input_data_io()
+            input_path = input_io.to_path()
 
             # The interactor's log file (required by testlib) is a writable memfd we read back below.
             log_io = MemoryIO()
@@ -116,6 +117,7 @@ class BridgedInteractiveGrader(StandardGrader):
                 fsize=case.config.output_limit_length + 1024,
                 extra_fs=[ExactFile(input_path)],
                 extra_write_fs=[ExactFile(log_io.to_path())],
+                keep_fds=[input_io.fileno(), log_io.fileno()],
             )
 
             os.close(self._interactor_stdin_pipe)
