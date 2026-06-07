@@ -78,7 +78,8 @@ class UnnamedFileIO(MmapableIO):
         _make_fd_readonly(self.fileno())
 
     def to_path(self) -> str:
-        return f'/proc/{os.getpid()}/fd/{self.fileno()}'
+        # See MemfdIO.to_path: /proc/self/fd so the consumer accesses its own kept-open descriptor.
+        return f'/proc/self/fd/{self.fileno()}'
 
     @classmethod
     def usable_with_name(cls):
@@ -96,7 +97,10 @@ class MemfdIO(MmapableIO):
         _make_fd_readonly(fd)
 
     def to_path(self) -> str:
-        return f'/proc/{os.getpid()}/fd/{self.fileno()}'
+        # Always /proc/self/fd, never /proc/<judgepid>/fd: the consumer is given this fd as one of
+        # its own (kept open past closefrom via keep_fds), and Landlock permits a process to access
+        # its own special descriptors (pipe/memfd) through /proc/self/fd, but not another process's.
+        return f'/proc/self/fd/{self.fileno()}'
 
     @classmethod
     def usable_with_name(cls):
