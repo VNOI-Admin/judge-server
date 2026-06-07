@@ -33,16 +33,26 @@ class CompilerIsolateTracer(IsolateTracer):
                 sys_getpgid: ALLOW,
                 sys_getresgid: ALLOW,
                 sys_getresuid: ALLOW,
+                # Directory / link / rename / unlink system calls are all Landlock-governed
+                # (MAKE_DIR/REMOVE_DIR/REMOVE_FILE/MAKE_SYM/REFER), so they run untrapped when
+                # Landlock is active (verified empirically). chmod/fchmodat/utimensat below are
+                # NOT expressible in Landlock and stay traced.
                 # Directory system calls
-                sys_mkdir: self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=0),
-                sys_mkdirat: self.handle_file_access_at(FilesystemSyscallKind.WRITE, dir_reg=0, file_reg=1),
-                sys_rmdir: self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=0),
+                sys_mkdir: self._landlock_governed(self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=0)),
+                sys_mkdirat: self._landlock_governed(
+                    self.handle_file_access_at(FilesystemSyscallKind.WRITE, dir_reg=0, file_reg=1)
+                ),
+                sys_rmdir: self._landlock_governed(self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=0)),
                 # Linking system calls
-                sys_link: self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=1),
-                sys_linkat: self.handle_file_access_at(FilesystemSyscallKind.WRITE, dir_reg=2, file_reg=3),
-                sys_unlink: self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=0),
-                sys_unlinkat: self.handle_file_access_at(FilesystemSyscallKind.WRITE, dir_reg=0, file_reg=1),
-                sys_symlink: self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=1),
+                sys_link: self._landlock_governed(self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=1)),
+                sys_linkat: self._landlock_governed(
+                    self.handle_file_access_at(FilesystemSyscallKind.WRITE, dir_reg=2, file_reg=3)
+                ),
+                sys_unlink: self._landlock_governed(self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=0)),
+                sys_unlinkat: self._landlock_governed(
+                    self.handle_file_access_at(FilesystemSyscallKind.WRITE, dir_reg=0, file_reg=1)
+                ),
+                sys_symlink: self._landlock_governed(self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=1)),
                 # Miscellaneous other filesystem system calls
                 sys_chmod: self.handle_file_access(FilesystemSyscallKind.WRITE, file_reg=0),
                 sys_utimensat: self.do_utimensat,
@@ -54,8 +64,8 @@ class CompilerIsolateTracer(IsolateTracer):
                 sys_fchmod: self.handle_fchmod,
                 sys_fallocate: ALLOW,
                 sys_ftruncate: ALLOW,
-                sys_rename: self.handle_rename,
-                sys_renameat: self.handle_renameat,
+                sys_rename: self._landlock_governed(self.handle_rename),
+                sys_renameat: self._landlock_governed(self.handle_renameat),
                 # I/O system calls
                 sys_readv: ALLOW,
                 sys_pwrite64: ALLOW,

@@ -4,7 +4,7 @@ import sys
 from enum import Enum
 from typing import Any, Callable, List, Mapping, Sequence
 
-from dmoj.cptbox._cptbox import AT_FDCWD, Debugger, bsd_get_proc_cwd, bsd_get_proc_fdno
+from dmoj.cptbox._cptbox import AT_FDCWD, Debugger, bsd_get_proc_cwd, bsd_get_proc_fdno, has_landlock
 from dmoj.cptbox.filesystem_policies import FilesystemAccessRule, FilesystemPolicy
 from dmoj.cptbox.handlers import (
     ACCESS_EACCES,
@@ -59,6 +59,15 @@ class IsolateTracer(dict):
         self._path_case_fixes = path_case_fixes or []
         self._path_whitelist = path_whitelist or []
 
+        # When Landlock is active it enforces the filesystem policy in-kernel, so syscalls it
+        # governs (open/exec and the create/remove/rename/truncate family) don't need a ptrace
+        # trap -- we let them run untrapped for speed. We must keep tracing when path_case_fixes
+        # is set, because case-rewriting requires intercepting the syscall to patch the path in
+        # the child's memory (security is still Landlock's; the handler only rewrites).
+        # has_landlock() calls the same get_landlock_version() the child uses in helper.cpp, so
+        # the two agree: if we relax here, the child applies Landlock (or aborts the spawn).
+        self._has_landlock = has_landlock()
+
         if sys.platform.startswith('freebsd'):
             self._getcwd_pid = lambda pid: utf8text(bsd_get_proc_cwd(pid))
             self._getfd_pid = lambda pid, fd: utf8text(bsd_get_proc_fdno(pid, fd))
@@ -68,9 +77,11 @@ class IsolateTracer(dict):
 
         self.update(
             {
-                # Deny with report
-                sys_openat: self.handle_openat(dir_reg=0, file_reg=1, flag_reg=2),
-                sys_open: self.handle_open(file_reg=0, flag_reg=1),
+                # Deny with report. open/openat are Landlock-governed (READ_FILE/WRITE_FILE/
+                # EXECUTE), so they run untrapped when Landlock is active; the metadata syscalls
+                # below (access/readlink/stat/chdir) are NOT expressible in Landlock and stay traced.
+                sys_openat: self._landlock_governed(self.handle_openat(dir_reg=0, file_reg=1, flag_reg=2)),
+                sys_open: self._landlock_governed(self.handle_open(file_reg=0, flag_reg=1)),
                 sys_faccessat: self.handle_file_access_at(FilesystemSyscallKind.READ, dir_reg=0, file_reg=1),
                 sys_faccessat2: self.handle_file_access_at(FilesystemSyscallKind.READ, dir_reg=0, file_reg=1),
                 sys_access: self.handle_file_access(FilesystemSyscallKind.READ, file_reg=0),
@@ -232,6 +243,24 @@ class IsolateTracer(dict):
                     sys_realpathat: self.handle_file_access_at(FilesystemSyscallKind.READ, dir_reg=0, file_reg=1),
                 }
             )
+
+    def _landlock_governed(self, checker: AccessChecker):
+        """Pick the seccomp action for a syscall whose access Landlock enforces in-kernel.
+
+        Returns ALLOW (run untrapped, Landlock is the gate) when Landlock is active and nothing
+        needs ptrace interception; otherwise returns the ptrace `checker` so the syscall is trapped
+        and enforced (and/or its path rewritten) by us. Only pass syscalls Landlock actually governs
+        (verified: open/openat, mkdir/rmdir, unlink(at), symlink, link(at), rename(at), truncate)
+        -- never the metadata syscalls (stat/access/readlink/chdir/chmod/utimes), which Landlock
+        cannot express and which must stay traced.
+
+        We keep tracing when path_case_fixes is set (the handler must rewrite the path in the
+        child's memory) or when path_whitelist is set (those paths are allowed via the ptrace check
+        bypass and may not be Landlock rules); both only occur for File-IO/Themis launches.
+        """
+        if self._has_landlock and not self._path_case_fixes and not self._path_whitelist:
+            return ALLOW
+        return checker
 
     def _compile_fs_jail(self, fs: Sequence[FilesystemAccessRule]) -> FilesystemPolicy:
         return FilesystemPolicy(fs)
