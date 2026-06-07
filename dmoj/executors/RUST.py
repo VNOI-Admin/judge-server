@@ -2,7 +2,7 @@ import fcntl
 import os
 from typing import List, Optional, Tuple, cast
 
-from dmoj.cptbox.filesystem_policies import ExactFile, RecursiveDir
+from dmoj.cptbox.filesystem_policies import ExactFile, FilesystemAccessRule, RecursiveDir
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.executors.compiled_executor import CompiledExecutor
 
@@ -87,6 +87,16 @@ class Executor(CompiledExecutor):
                 self.shared_target = maybe_target
                 # We intentionally don't clean this directory up at any point, since we can re-use it.
                 return self.shared_target
+
+    def get_fs(self) -> List[FilesystemAccessRule]:
+        fs = super().get_fs()
+        # Under landlock we need this for execve to work. `_executable` is None until compilation
+        # finishes, and get_compiler_read_fs() calls get_fs() during compile -- the binary doesn't
+        # exist yet then, so only add it once it's there (i.e. for the runtime sandbox).
+        # We use `self._executable` because it is copied when caching executors, but other properties are not.
+        if self._executable is not None:
+            fs += [ExactFile(self._executable)]
+        return fs
 
     def cleanup(self) -> None:
         super().cleanup()
