@@ -98,6 +98,10 @@ PTBOX_SPAWN_FAIL_SECCOMP: int
 PTBOX_SPAWN_FAIL_TRACEME: int
 PTBOX_SPAWN_FAIL_EXECVE: int
 PTBOX_SPAWN_FAIL_SETAFFINITY: int
+PTBOX_SPAWN_FAIL_LANDLOCK: int
+
+def has_landlock() -> bool: ...
+def landlock_version() -> int: ...
 
 AT_FDCWD: int
 bsd_get_proc_cwd: Callable[[int], str]

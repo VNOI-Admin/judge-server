@@ -62,6 +62,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        sandbox_mode: ['ptrace+seccomp+landlock', 'ptrace+seccomp']
     steps:
       - uses: actions/checkout@v6
       - name: Download docker image
@@ -77,6 +78,7 @@ jobs:
           export PYTHONUNBUFFERED=1
           export LANG=C.UTF-8
           export PYTHONIOENCODING=utf8
+          export DMOJ_SANDBOX_MODE=${{ matrix.sandbox_mode }}
           cd /code
           export PYTHON="/code/python${{ matrix.python-version }}/bin/python${{ matrix.python-version }}"
           "$PYTHON" -m pip install --upgrade pip wheel
@@ -137,6 +139,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        sandbox_mode: ['ptrace+seccomp+landlock', 'ptrace+seccomp']
     steps:
       - uses: actions/checkout@v6
       - name: Download docker image
@@ -152,6 +155,7 @@ jobs:
           export PYTHONUNBUFFERED=1
           export LANG=C.UTF-8
           export PYTHONIOENCODING=utf8
+          export DMOJ_SANDBOX_MODE=${{ matrix.sandbox_mode }}
           cd /code
           export PYTHON="/code/python${{ matrix.python-version }}/bin/python${{ matrix.python-version }}"
           "$PYTHON" -m pip install --upgrade pip wheel
