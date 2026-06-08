@@ -130,6 +130,7 @@ cptbox_sources = [
     '_cptbox.pyx',
     'helper.cpp',
     'landlock_helpers.cpp',
+    'notify_helper.cpp',
     'ptdebug.cpp',
     'ptdebug_x86.cpp',
     'ptdebug_x64.cpp',

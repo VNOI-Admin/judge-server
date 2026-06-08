@@ -1,5 +1,6 @@
 #include "helper.h"
 #include "landlock_helpers.h"
+#include "notify_helper.h"
 #include "ptbox.h"
 
 #include <dirent.h>
@@ -11,6 +12,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -52,6 +54,33 @@ static inline void cptbox_close_fd(int fd) {
 
 static inline bool fd_kept(int fd, const int *keep_fds);
 
+#if !PTBOX_FREEBSD
+// Send a single fd over a connected unix socket via SCM_RIGHTS. Returns 0 on success, -1 on error.
+static int send_one_fd(int socket, int fd) {
+    char dummy = 0;
+    struct iovec io = { .iov_base = &dummy, .iov_len = 1 };
+    union {
+        char buf[CMSG_SPACE(sizeof(int))];
+        struct cmsghdr align;
+    } u;
+    memset(&u, 0, sizeof u);
+    struct msghdr msg = {};
+    msg.msg_iov = &io;
+    msg.msg_iovlen = 1;
+    msg.msg_control = u.buf;
+    msg.msg_controllen = sizeof u.buf;
+    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+    cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+    memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+    while (sendmsg(socket, &msg, 0) < 0)
+        if (errno != EINTR)
+            return -1;
+    return 0;
+}
+#endif
+
 int cptbox_child_run(const struct child_config *config) {
 #ifndef __FreeBSD__
     // There is no ASLR on FreeBSD, but disable it elsewhere
@@ -60,6 +89,14 @@ int cptbox_child_run(const struct child_config *config) {
 
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0))
         return PTBOX_SPAWN_FAIL_NO_NEW_PRIVS;
+
+    if (!config->use_ptrace) {
+        // Ptrace-less: there is no PTRACE_O_EXITKILL to clean us up, so ask the kernel to SIGKILL
+        // this child if the supervisor (our parent) dies. This persists across execve of a normal
+        // binary under no_new_privs. Best-effort, and only covers this (the group-leader) process --
+        // PDEATHSIG is cleared on fork, so forked children rely on the supervisor's group teardown.
+        prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+    }
 
 #ifdef PR_SET_SPECULATION_CTRL  // Since Linux 4.17
     // Turn off Spectre Variant 4 protection in case it is turned on; we don't
@@ -70,7 +107,7 @@ int cptbox_child_run(const struct child_config *config) {
 #endif
 #endif
 
-    if (ptrace_traceme()) {
+    if (config->use_ptrace && ptrace_traceme()) {
         perror("ptrace");
         return PTBOX_SPAWN_FAIL_TRACEME;
     }
@@ -157,7 +194,14 @@ int cptbox_child_run(const struct child_config *config) {
     }
 
 seccomp_setup:
-    scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_TRACE(0));
+    // Ptrace mode traps unknown syscalls to the tracer. Ptrace-less defaults to NOTIFY (when a
+    // supervisor is attached) so a disallowed syscall in ANY process -- including a forked child the
+    // leader reaps before we could see it -- reaches the supervisor, which records the violation
+    // (with the syscall name) and kills the group, matching ptrace's per-task fault. Without a
+    // supervisor (no notify), default to KILL_PROCESS (fail-closed).
+    scmp_filter_ctx ctx =
+        seccomp_init(config->use_ptrace ? SCMP_ACT_TRACE(0)
+                                        : (config->notify_fd_socket >= 0 ? SCMP_ACT_NOTIFY : SCMP_ACT_KILL_PROCESS));
     if (!ctx) {
         fprintf(stderr, "Failed to initialize seccomp context!");
         goto seccomp_init_fail;
@@ -186,12 +230,62 @@ seccomp_setup:
                 fprintf(stderr, "seccomp_rule_add(..., SCMP_ACT_ERRNO(%d), %d): %s\n", handler, syscall, strerror(-rc));
                 // This failure is not fatal, it'll just cause the syscall to trap anyway.
             }
+        } else if (handler == PTBOX_SECCOMP_NOTIFY) {
+            // Ptrace-less dynamic syscall: notify the supervisor (seccomp user-notification).
+            if ((rc = seccomp_rule_add(ctx, SCMP_ACT_NOTIFY, syscall, 0))) {
+                fprintf(stderr, "seccomp_rule_add(..., SCMP_ACT_NOTIFY, %d): %s\n", syscall, strerror(-rc));
+            }
+        }
+    }
+
+    if (!config->use_ptrace) {
+        // In ptrace mode the monitor allows every syscall before the program's first execve, which
+        // covers cptbox's own post-seccomp_load setup (the closefrom() sweep, setrlimit, execve).
+        // A static filter has no such phase, so handle those setup syscalls. setrlimit must stay
+        // after seccomp_load (a tight RLIMIT_AS set first can OOM the filter install).
+        seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(setrlimit), 0);
+        if (config->notify_fd_socket >= 0) {
+            // We hand the notify listener fd to the supervisor with sendmsg() below, after the
+            // filter is loaded; allow it. The submission cannot create sockets, so this is inert
+            // to it, and the handoff socket is closed before execve regardless.
+            seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(sendmsg), 0);
+            // Notify on execve: the supervisor allows the program's first execve (and learns the
+            // program started -- its was_initialized signal) and denies any later re-exec by the
+            // submission, matching ptrace mode.
+            seccomp_rule_add(ctx, SCMP_ACT_NOTIFY, SCMP_SYS(execve), 0);
+        } else {
+            // No supervisor: allow execve statically (the still-fully-sandboxed submission may then
+            // re-exec -- a divergence from ptrace mode, only in the notify-less fallback).
+            seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(execve), 0);
         }
     }
 
     if ((rc = seccomp_load(ctx))) {
         fprintf(stderr, "seccomp_load: %s\n", strerror(-rc));
         goto seccomp_load_fail;
+    }
+
+    if (!config->use_ptrace && config->notify_fd_socket >= 0) {
+        // Hand the seccomp user-notification listener fd to the supervisor over the inherited
+        // socketpair (then drop both fds, before the closefrom sweep). Done here, after load, so
+        // the listener exists. If the policy installed no NOTIFY rules, seccomp_notify_fd() returns
+        // -1; we just close the socket so the supervisor sees EOF and runs without a listener.
+        int notify_listener = seccomp_notify_fd(ctx);
+        if (notify_listener >= 0) {
+            if (send_one_fd(config->notify_fd_socket, notify_listener) < 0) {
+                perror("send seccomp notify fd");
+                // Close the socket so the supervisor's recv sees EOF and tears us down: we cannot
+                // exit cleanly here -- exit_group is NOTIFY-trapped and no service thread is running
+                // (it only starts once the supervisor has this fd), so a clean return would block
+                // forever. The supervisor's killpg then frees us.
+                close(config->notify_fd_socket);
+                close(notify_listener);
+                seccomp_release(ctx);
+                return PTBOX_SPAWN_FAIL_SECCOMP_NOTIFY;
+            }
+            close(notify_listener);
+        }
+        close(config->notify_fd_socket);
     }
 
     seccomp_release(ctx);

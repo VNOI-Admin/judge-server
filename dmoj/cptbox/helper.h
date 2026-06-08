@@ -4,12 +4,17 @@
 
 #include <sys/types.h>
 
-#define PTBOX_SPAWN_FAIL_NO_NEW_PRIVS 202
-#define PTBOX_SPAWN_FAIL_SECCOMP      203
-#define PTBOX_SPAWN_FAIL_TRACEME      204
-#define PTBOX_SPAWN_FAIL_EXECVE       205
-#define PTBOX_SPAWN_FAIL_SETAFFINITY  206
-#define PTBOX_SPAWN_FAIL_LANDLOCK     207
+#define PTBOX_SPAWN_FAIL_NO_NEW_PRIVS   202
+#define PTBOX_SPAWN_FAIL_SECCOMP        203
+#define PTBOX_SPAWN_FAIL_TRACEME        204
+#define PTBOX_SPAWN_FAIL_EXECVE         205
+#define PTBOX_SPAWN_FAIL_SETAFFINITY    206
+#define PTBOX_SPAWN_FAIL_LANDLOCK       207
+#define PTBOX_SPAWN_FAIL_SECCOMP_NOTIFY 208
+
+// seccomp_handlers[] sentinel: route this syscall to the supervisor via seccomp user-notification
+// (ptrace-less mode). Distinct from 0 (ALLOW), >0 (ERRNO(n)), and -1 (legacy ptrace TRACE / no rule).
+#define PTBOX_SECCOMP_NOTIFY (-2)
 
 struct child_config {
     unsigned long memory;
@@ -41,6 +46,14 @@ struct child_config {
     // consumer can access them as its own /proc/self/fd/<n> (which Landlock permits, unlike a
     // cross-process /proc/<pid>/fd/<n>).
     const int *keep_open_fds;
+    // When 0, run ptrace-less: do not PTRACE_TRACEME, build a self-sufficient seccomp filter
+    // (default action SCMP_ACT_KILL_PROCESS, dynamic syscalls become SCMP_ACT_NOTIFY), and set
+    // PR_SET_PDEATHSIG so the child dies with the supervisor. When non-zero, legacy ptrace mode.
+    int use_ptrace;
+    // Ptrace-less only: a writable fd (one end of a socketpair) on which the child sends the
+    // seccomp NEW_LISTENER fd back to the supervisor via SCM_RIGHTS. -1 disables (Stage A / no
+    // dynamic syscalls).
+    int notify_fd_socket;
 };
 
 // Returns the Landlock ABI version (>=1), 0 if Landlock is unavailable/disabled, or -1 on error.

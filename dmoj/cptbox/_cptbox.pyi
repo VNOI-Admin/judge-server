@@ -99,9 +99,17 @@ PTBOX_SPAWN_FAIL_TRACEME: int
 PTBOX_SPAWN_FAIL_EXECVE: int
 PTBOX_SPAWN_FAIL_SETAFFINITY: int
 PTBOX_SPAWN_FAIL_LANDLOCK: int
+PTBOX_SPAWN_FAIL_SECCOMP_NOTIFY: int
 
 def has_landlock() -> bool: ...
 def landlock_version() -> int: ...
+
+NOTIFY_FLAG_CONTINUE: int
+NOTIFY_NATIVE_ARCH: int
+
+def notify_receive(fd: int) -> Optional[Tuple[int, int, int, int, Tuple[int, int, int, int, int, int]]]: ...
+def notify_respond(fd: int, id: int, val: int, error: int, flags: int) -> int: ...
+def notify_id_valid(fd: int, id: int) -> bool: ...
 
 AT_FDCWD: int
 bsd_get_proc_cwd: Callable[[int], str]

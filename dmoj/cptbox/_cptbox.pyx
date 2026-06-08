@@ -131,6 +131,8 @@ cdef extern from 'helper.h' nogil:
         const char **landlock_write_exact_dirs
         const char **landlock_write_recursive_dirs
         const int *keep_open_fds
+        int use_ptrace
+        int notify_fd_socket
 
     int get_landlock_version()
     void cptbox_closefrom(int lowfd, const int *keep_fds)
@@ -145,9 +147,25 @@ cdef extern from 'helper.h' nogil:
         PTBOX_SPAWN_FAIL_EXECVE
         PTBOX_SPAWN_FAIL_SETAFFINITY
         PTBOX_SPAWN_FAIL_LANDLOCK
+        PTBOX_SPAWN_FAIL_SECCOMP_NOTIFY
 
     int cptbox_memfd_create()
     int cptbox_memfd_seal(int fd)
+
+cdef extern from 'notify_helper.h' nogil:
+    cdef struct cptbox_notif:
+        unsigned long long id
+        unsigned int pid
+        unsigned int flags
+        int nr
+        unsigned int arch
+        unsigned long long instruction_pointer
+        unsigned long long args[6]
+    int cptbox_notify_recv(int fd, cptbox_notif *out)
+    int cptbox_notify_respond(int fd, unsigned long long id, long long val, int error, unsigned int flags)
+    int cptbox_notify_id_valid(int fd, unsigned long long id)
+    unsigned int cptbox_notify_flag_continue()
+    unsigned int cptbox_notify_native_arch()
 
 
 cdef extern from 'fcntl.h' nogil:
@@ -247,6 +265,27 @@ def landlock_version():
 def has_landlock():
     # ABI 3 is the minimum acceptable version for us.
     return landlock_version() >= 3
+
+NOTIFY_FLAG_CONTINUE = cptbox_notify_flag_continue()
+NOTIFY_NATIVE_ARCH = cptbox_notify_native_arch()
+
+def notify_receive(int fd):
+    # Block for one seccomp user-notification on the listener `fd`. Returns
+    # (id, pid, nr, arch, (arg0..arg5)) or None on error.
+    cdef cptbox_notif n
+    cdef int rc
+    with nogil:
+        rc = cptbox_notify_recv(fd, &n)
+    if rc < 0:
+        return None
+    return (n.id, n.pid, n.nr, n.arch,
+            (n.args[0], n.args[1], n.args[2], n.args[3], n.args[4], n.args[5]))
+
+def notify_respond(int fd, unsigned long long id, long long val, int error, unsigned int flags):
+    return cptbox_notify_respond(fd, id, val, error, flags)
+
+def notify_id_valid(int fd, unsigned long long id):
+    return cptbox_notify_id_valid(fd, id) != 0
 
 cdef class Process
 
@@ -456,6 +495,12 @@ cdef class Process:
     cdef public object keep_fds
     cdef unsigned long _max_memory
     cdef unsigned long _init_nvcsw, _init_nivcsw
+    # When False, _spawn runs the child ptrace-less (use_ptrace=0); the caller (SeccompPopen)
+    # supervises with wait4/poll instead of the pt_process ptrace monitor.
+    cdef public bint _use_ptrace
+    # Ptrace-less only: child end of a socketpair on which the child sends back the seccomp notify
+    # listener fd (SCM_RIGHTS). -1 disables notifications.
+    cdef public int _notify_fd_socket
 
     cpdef Debugger create_debugger(self):
         return Debugger(self)
@@ -475,6 +520,8 @@ cdef class Process:
         self.landlock_write_exact_dirs = []
         self.landlock_write_recursive_dirs = []
         self.keep_fds = []
+        self._use_ptrace = True
+        self._notify_fd_socket = -1
 
         self.debugger = self.create_debugger()
         self.process = new pt_process(self.debugger.thisptr)
@@ -543,6 +590,8 @@ cdef class Process:
         config.landlock_write_exact_dirs = NULL
         config.landlock_write_recursive_dirs = NULL
         config.keep_open_fds = NULL
+        config.use_ptrace = 1 if self._use_ptrace else 0
+        config.notify_fd_socket = self._notify_fd_socket
 
         try:
             config.address_space = self._child_address

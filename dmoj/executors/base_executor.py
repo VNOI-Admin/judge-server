@@ -12,6 +12,7 @@ from dmoj.config import ConfigNode
 from dmoj.cptbox import FILE_IO_PIPE, IsolateTracer, TracedPopen, syscalls
 from dmoj.cptbox.filesystem_policies import ExactDir, ExactFile, FilesystemAccessRule, RecursiveDir
 from dmoj.cptbox.handlers import ALLOW
+from dmoj.cptbox.seccomp_tracer import select_sandbox_popen
 from dmoj.cptbox.utils import MmapableIO
 from dmoj.error import InternalError
 from dmoj.judgeenv import env, skip_self_test
@@ -354,7 +355,8 @@ class BaseExecutor(metaclass=ExecutorMeta):
 
         executable = self.get_executable()
         assert executable is not None
-        return TracedPopen(
+        popen_class = select_sandbox_popen()
+        return popen_class(
             [utf8bytes(a) for a in self.get_cmdline(**kwargs) + list(args)],
             executable=utf8bytes(executable),
             security=self.get_security(launch_kwargs=kwargs, extra_fs=kwargs.get('extra_fs')),
