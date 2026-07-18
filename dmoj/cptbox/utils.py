@@ -1,3 +1,4 @@
+import fcntl
 import io
 import mmap
 import os
@@ -6,6 +7,22 @@ from tempfile import NamedTemporaryFile, TemporaryFile
 from typing import Optional
 
 from dmoj.cptbox._cptbox import memfd_create, memfd_seal
+
+# The sandbox child (helper.cpp) dup2()s descriptors onto fds 0-4 before execve: stdin/stdout/stderr
+# plus the File-IO pipes on fd 3 and 4. A descriptor we hand the child via keep_fds so it can reopen
+# it through /proc/self/fd/<n> must therefore sit above that range, or the dup2 would clobber it
+# (leaving the child's /proc/self/fd/<n> pointing at the pipe instead of our data).
+_MIN_CHILD_KEEP_FD = 5
+
+
+def _relocate_above_std_fds(fd: int) -> int:
+    if fd >= _MIN_CHILD_KEEP_FD:
+        return fd
+    # F_DUPFD returns the lowest free fd >= _MIN_CHILD_KEEP_FD, and (unlike F_DUPFD_CLOEXEC) leaves
+    # it inheritable, which the child needs.
+    new_fd = fcntl.fcntl(fd, fcntl.F_DUPFD, _MIN_CHILD_KEEP_FD)
+    os.close(fd)
+    return new_fd
 
 
 def _make_fd_readonly(fd):
@@ -71,7 +88,7 @@ class NamedFileIO(MmapableIO):
 class UnnamedFileIO(MmapableIO):
     def __init__(self, *, prefill: Optional[bytes] = None, seal=False) -> None:
         with TemporaryFile() as f:
-            super().__init__(os.dup(f.fileno()), prefill=prefill, seal=seal)
+            super().__init__(_relocate_above_std_fds(os.dup(f.fileno())), prefill=prefill, seal=seal)
 
     def seal(self) -> None:
         self.seek(0, os.SEEK_SET)
@@ -89,7 +106,7 @@ class UnnamedFileIO(MmapableIO):
 
 class MemfdIO(MmapableIO):
     def __init__(self, *, prefill: Optional[bytes] = None, seal=False) -> None:
-        super().__init__(memfd_create(), prefill=prefill, seal=seal)
+        super().__init__(_relocate_above_std_fds(memfd_create()), prefill=prefill, seal=seal)
 
     def seal(self) -> None:
         fd = self.fileno()
