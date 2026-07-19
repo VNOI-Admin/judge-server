@@ -10,7 +10,7 @@ import traceback
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from dmoj.config import ConfigNode
-from dmoj.cptbox import FILE_IO_PIPE, IsolateTracer, TracedPopen, syscalls
+from dmoj.cptbox import IsolateTracer, TracedPopen, syscalls
 from dmoj.cptbox.filesystem_policies import ExactDir, ExactFile, FilesystemAccessRule, RecursiveDir
 from dmoj.cptbox.handlers import ALLOW
 from dmoj.cptbox.utils import MmapableIO
@@ -260,14 +260,17 @@ class BaseExecutor(metaclass=ExecutorMeta):
             sec[getattr(syscalls, f'sys_{name}')] = handler
         return sec
 
-    def get_security(self, launch_kwargs=None, extra_fs=None) -> IsolateTracer:
+    def get_security(self, launch_kwargs=None, extra_fs=None, extra_write_fs=None) -> IsolateTracer:
         launch_kwargs = {} if launch_kwargs is None else launch_kwargs
         read_fs = self.get_fs()
         if extra_fs:
             read_fs += extra_fs
+        write_fs = self.get_write_fs()
+        if extra_write_fs:
+            write_fs += extra_write_fs
         sec = IsolateTracer(
             read_fs=read_fs,
-            write_fs=self.get_write_fs(),
+            write_fs=write_fs,
             path_case_fixes=launch_kwargs.get('path_case_fixes', []),
             path_whitelist=launch_kwargs.get('path_whitelist', []),
         )
@@ -327,31 +330,31 @@ class BaseExecutor(metaclass=ExecutorMeta):
         if 'path_whitelist' not in kwargs:
             kwargs['path_whitelist'] = []
 
-        stdin, stdout = None, None
+        stdin = stdout = None
         if isinstance(kwargs.get('file_io'), ConfigNode):
-            # Here's roughly how File IO works:
-            # - The input/output files are symlinks to `/dev/fd/3` and `/dev/fd/4`, respectively.
-            # - When passed FILE_IO_PIPE, TracedPopen will pipe the actual input/output to fd 3/4
-            #   instead of stdin/stdout. stdin and stdout are piped to `/dev/null`.
-            #
-            # On FreeBSD, fdescfs needs to be mounted manually: mount -t fdescfs null /dev/fd
-
+            # The input and output files are symlinks to the caller's own memfds (passed as stdin and
+            # stdout), reached cross-process via /proc/<judgepid>/fd/<n>: input is the read-only input
+            # memfd, output is the stdout memfd the caller reads back afterwards. The program talks to
+            # the files, so its own stdin/stdout go to /dev/null.
             file_io = kwargs['file_io']
 
             if isinstance(file_io.get('input'), str):
                 passed_stdin = kwargs.get('stdin')
                 assert isinstance(passed_stdin, MmapableIO)
 
-                stdin = subprocess.PIPE
+                stdin = subprocess.DEVNULL
                 input = os.path.abspath(os.path.join(self._dir, file_io['input']))
                 create_symlink(passed_stdin.to_path(), input)
                 kwargs['path_case_fixes'].append(input)
                 kwargs['path_whitelist'].append(input)
 
             if isinstance(file_io.get('output'), str):
-                stdout = FILE_IO_PIPE
+                passed_stdout = kwargs.get('stdout')
+                assert isinstance(passed_stdout, MmapableIO)
+
+                stdout = subprocess.DEVNULL
                 output = os.path.abspath(os.path.join(self._dir, file_io['output']))
-                create_symlink('/dev/fd/4', output)
+                create_symlink(passed_stdout.to_path(), output)
                 kwargs['path_case_fixes'].append(output)
                 kwargs['path_whitelist'].append(output)
 
@@ -376,7 +379,9 @@ class BaseExecutor(metaclass=ExecutorMeta):
         return TracedPopen(
             [utf8bytes(a) for a in self.get_cmdline(**kwargs) + list(args)],
             executable=utf8bytes(executable),
-            security=self.get_security(launch_kwargs=kwargs, extra_fs=kwargs.get('extra_fs')),
+            security=self.get_security(
+                launch_kwargs=kwargs, extra_fs=kwargs.get('extra_fs'), extra_write_fs=kwargs.get('extra_write_fs')
+            ),
             address_grace=self.get_address_grace(),
             data_grace=self.data_grace,
             personality=self.personality,
@@ -386,8 +391,6 @@ class BaseExecutor(metaclass=ExecutorMeta):
             stdin=stdin if stdin is not None else kwargs.get('stdin'),
             stdout=stdout if stdout is not None else kwargs.get('stdout'),
             stderr=kwargs.get('stderr'),
-            child_stdin=kwargs.get('stdin') if stdin is not None else None,
-            child_stdout=kwargs.get('stdout') if stdout is not None else None,
             env=child_env,
             cwd=utf8bytes(self._dir),
             nproc=self.get_nproc(),
