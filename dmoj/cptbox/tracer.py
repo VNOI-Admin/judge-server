@@ -17,8 +17,7 @@ from dmoj.utils.unicode import utf8bytes, utf8text
 
 PIPE = subprocess.PIPE
 STDOUT = subprocess.STDOUT
-FILE_IO_PIPE = -4
-assert FILE_IO_PIPE != PIPE and FILE_IO_PIPE != STDOUT
+DEVNULL = subprocess.DEVNULL
 
 log = logging.getLogger('dmoj.cptbox')
 
@@ -111,8 +110,6 @@ class TracedPopen(Process):
         stdin: Optional[int] = PIPE,
         stdout: Optional[int] = PIPE,
         stderr: Optional[int] = None,
-        child_stdin: Optional[int] = None,
-        child_stdout: Optional[int] = None,
         env: Optional[Mapping[str, Optional[str]]] = None,
         nproc: int = 0,
         fsize: int = 0,
@@ -151,7 +148,7 @@ class TracedPopen(Process):
 
         self._is_tle = False
         self._is_ole = False
-        self.__init_streams(stdin, stdout, stderr, child_stdin, child_stdout)
+        self.__init_streams(stdin, stdout, stderr)
         self._last_ptrace_errno = None
         self.protection_fault = None
 
@@ -347,10 +344,6 @@ class TracedPopen(Process):
                 os.close(self._child_stdout)
             if self.stderr_needs_close:
                 os.close(self._child_stderr)
-            if self.fd_3_needs_close:
-                os.close(self._child_fd_3)
-            if self.fd_4_needs_close:
-                os.close(self._child_fd_4)
             if hasattr(self, '_devnull'):
                 os.close(self._devnull)
 
@@ -401,24 +394,16 @@ class TracedPopen(Process):
             self._devnull = os.open(os.devnull, os.O_RDWR)
         return self._devnull
 
-    def __init_streams(self, stdin, stdout, stderr, child_stdin, child_stdout) -> None:
+    def __init_streams(self, stdin, stdout, stderr) -> None:
         self.stdin = self.stdout = self.stderr = None
         self.stdin_needs_close = self.stdout_needs_close = self.stderr_needs_close = False
-        self.fd_3_needs_close = self.fd_4_needs_close = False
-        self._child_fd_3 = self._child_fd_4 = -1
 
-        if stdin == FILE_IO_PIPE:
-            if isinstance(child_stdin, int) and child_stdin >= 0:
-                self._child_stdin = child_stdin
-            else:
-                self._child_stdin = self._get_devnull()
-            self._child_fd_3, self._stdin = os.pipe()
-            self.stdin = os.fdopen(self._stdin, 'wb')
-            self.fd_3_needs_close = True
-        elif stdin == PIPE:
+        if stdin == PIPE:
             self._child_stdin, self._stdin = os.pipe()
             self.stdin = os.fdopen(self._stdin, 'wb')
             self.stdin_needs_close = True
+        elif stdin == DEVNULL:
+            self._stdin, self._child_stdin = -1, self._get_devnull()
         elif isinstance(stdin, int):
             self._child_stdin, self._stdin = stdin, -1
         elif stdin is not None:
@@ -426,18 +411,12 @@ class TracedPopen(Process):
         else:
             self._child_stdin = self._stdin = -1
 
-        if stdout == FILE_IO_PIPE:
-            if isinstance(child_stdout, int) and child_stdout >= 0:
-                self._child_stdout = child_stdout
-            else:
-                self._child_stdout = self._get_devnull()
-            self._stdout, self._child_fd_4 = os.pipe()
-            self.stdout = os.fdopen(self._stdout, 'rb')
-            self.fd_4_needs_close = True
-        elif stdout == PIPE:
+        if stdout == PIPE:
             self._stdout, self._child_stdout = os.pipe()
             self.stdout = os.fdopen(self._stdout, 'rb')
             self.stdout_needs_close = True
+        elif stdout == DEVNULL:
+            self._stdout, self._child_stdout = -1, self._get_devnull()
         elif isinstance(stdout, int):
             self._stdout, self._child_stdout = -1, stdout
         elif stdout is not None:

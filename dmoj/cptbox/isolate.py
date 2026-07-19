@@ -389,7 +389,8 @@ class IsolateTracer(dict):
             normalized = os.path.join('/proc/self', os.path.relpath(file, f'/proc/{debugger.pid}'))
         real = os.path.realpath(file)
 
-        # This hack is need for File IO, which symlinks the input/output files to `/dev/fd/3` and `/dev/fd/4`.
+        # This hack is need for File IO, which symlinks the input/output files to a memfd's
+        # `/proc/<judgepid>/fd/<n>`.
         # As a result, os.path.realpath(file) may return anything depending on the environment:
         # `/dev/null`, `/dev/pts/0`, or even `/proc/{our pid}/fd/pipe:[?]`.
         # To avoid this nightmare, let's just skip the check.

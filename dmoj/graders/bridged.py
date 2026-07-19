@@ -1,5 +1,4 @@
 import os
-import random
 import shlex
 import subprocess
 from typing import TYPE_CHECKING
@@ -8,6 +7,7 @@ from dmoj.checkers import CheckerOutput
 from dmoj.config import ConfigNode
 from dmoj.contrib import contrib_modules
 from dmoj.cptbox.filesystem_policies import ExactFile
+from dmoj.cptbox.utils import MemoryIO
 from dmoj.error import CompileError, InternalError
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.graders.standard import StandardGrader
@@ -96,15 +96,13 @@ class BridgedInteractiveGrader(StandardGrader):
         with mktemp(judge_output) as answer_file:
             input_path = case.input_data_io().to_path()
 
-            # Take advantage of File IO to support log file (required by testlib).
-            # Collision is not a concern here because the log file, which is just a symlink to /dev/fd/4,
-            # is created inside a temporary directory.
-            interactor_log_file = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789_', k=8))
+            # The interactor's log file (required by testlib) is a writable memfd we read back below.
+            log_io = MemoryIO()
 
             interactor_args = shlex.split(
                 args_format_string.format(
                     input_file=shlex.quote(input_path),
-                    output_file=shlex.quote(interactor_log_file),
+                    output_file=shlex.quote(log_io.to_path()),
                     answer_file=shlex.quote(answer_file.name),
                 )
             )
@@ -115,14 +113,17 @@ class BridgedInteractiveGrader(StandardGrader):
                 stdin=self._interactor_stdin_pipe,
                 stdout=self._interactor_stdout_pipe,
                 stderr=subprocess.PIPE,
-                file_io=ConfigNode({'output': interactor_log_file}),
+                fsize=case.config.output_limit_length + 1024,
                 extra_fs=[ExactFile(input_path)],
+                extra_write_fs=[ExactFile(log_io.to_path())],
             )
 
             os.close(self._interactor_stdin_pipe)
             os.close(self._interactor_stdout_pipe)
 
-            result.proc_output, self._interactor_stderr = self._interactor.communicate()
+            _, self._interactor_stderr = self._interactor.communicate()
+            result.proc_output = log_io.to_bytes()
+            log_io.close()
             self._current_proc.wait()
 
             return self._current_proc.stderr.read()

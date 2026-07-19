@@ -3,7 +3,6 @@ import subprocess
 from typing import Any
 
 from dmoj.checkers import CheckerOutput
-from dmoj.config import ConfigNode
 from dmoj.cptbox import TracedPopen
 from dmoj.cptbox.lazy_bytes import LazyBytes
 from dmoj.cptbox.utils import MemoryIO, MmapableIO
@@ -92,18 +91,11 @@ class StandardGrader(BaseGrader):
 
         return check
 
-    def _use_memfd_output(self, case: TestCase) -> bool:
-        file_io = case.config.file_io
-        if isinstance(file_io, ConfigNode) and isinstance(file_io.get('output'), str):
-            # File-IO-output problems read their answer back through communicate(), not stdout.
-            return False
-        return self.memfd_output
-
     def _launch_process(self, case: TestCase, input_file=None) -> None:
         stdout: Any
         stderr: Any
         fsize = self.binary.fsize
-        if self._use_memfd_output(case):
+        if self.memfd_output:
             if case.config.output_limit_length > env.memfd_output_limit:
                 raise InternalError(
                     f'output_limit_length ({case.config.output_limit_length}) exceeds '
@@ -132,9 +124,7 @@ class StandardGrader(BaseGrader):
         process = self._current_proc
         assert process is not None
 
-        if self._use_memfd_output(case):
-            if process.stdin:
-                process.stdin.close()
+        if self.memfd_output:
             process.wait()
 
             result.proc_output = self._stdout_io.to_bytes()
