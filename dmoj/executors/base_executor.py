@@ -391,7 +391,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
             env=child_env,
             cwd=utf8bytes(self._dir),
             nproc=self.get_nproc(),
-            fsize=self.fsize,
+            fsize=kwargs.get('fsize', self.fsize),
             cpu_affinity=env.submission_cpu_affinity,
         )
 

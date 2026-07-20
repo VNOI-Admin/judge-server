@@ -1,20 +1,30 @@
 import logging
 import subprocess
+from typing import Any
 
 from dmoj.checkers import CheckerOutput
+from dmoj.config import ConfigNode
 from dmoj.cptbox import TracedPopen
 from dmoj.cptbox.lazy_bytes import LazyBytes
-from dmoj.error import OutputLimitExceeded
+from dmoj.cptbox.utils import MemoryIO, MmapableIO
+from dmoj.error import InternalError, OutputLimitExceeded
 from dmoj.executors import executors
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.graders.base import BaseGrader
+from dmoj.judgeenv import env
 from dmoj.problem import TestCase
 from dmoj.result import CheckerResult, Result
 
 log = logging.getLogger('dmoj.graders')
 
+STDERR_LIMIT = 1048576
+
 
 class StandardGrader(BaseGrader):
+    _stdout_io: MmapableIO
+    _stderr_io: MmapableIO
+    memfd_output: bool = True
+
     def grade(self, case: TestCase) -> Result:
         result = Result(case)
 
@@ -82,30 +92,69 @@ class StandardGrader(BaseGrader):
 
         return check
 
+    def _use_memfd_output(self, case: TestCase) -> bool:
+        file_io = case.config.file_io
+        if isinstance(file_io, ConfigNode) and isinstance(file_io.get('output'), str):
+            # File-IO-output problems read their answer back through communicate(), not stdout.
+            return False
+        return self.memfd_output
+
     def _launch_process(self, case: TestCase, input_file=None) -> None:
+        stdout: Any
+        stderr: Any
+        fsize = self.binary.fsize
+        if self._use_memfd_output(case):
+            if case.config.output_limit_length > env.memfd_output_limit:
+                raise InternalError(
+                    f'output_limit_length ({case.config.output_limit_length}) exceeds '
+                    f'memfd_output_limit ({env.memfd_output_limit})'
+                )
+            stdout = self._stdout_io = MemoryIO()
+            stderr = self._stderr_io = MemoryIO()
+            fsize = max(fsize, case.config.output_limit_length + 1024, STDERR_LIMIT + 1024)
+        else:
+            stdout = subprocess.PIPE
+            stderr = subprocess.PIPE
+
         self._current_proc = self.binary.launch(
             time=self.problem.time_limit,
             memory=self.problem.memory_limit,
             file_io=case.config.file_io,
             symlinks=case.config.symlinks,
             stdin=input_file or subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=stdout,
+            stderr=stderr,
+            fsize=fsize,
             wall_time=case.config.wall_time_factor * self.problem.time_limit,
         )
 
     def _interact_with_process(self, case: TestCase, result: Result) -> bytes:
         process = self._current_proc
         assert process is not None
-        try:
-            result.proc_output, error = process.communicate(
-                None, outlimit=case.config.output_limit_length, errlimit=1048576
-            )
-        except OutputLimitExceeded:
-            error = b''
-            process.kill()
-        finally:
+
+        if self._use_memfd_output(case):
+            if process.stdin:
+                process.stdin.close()
             process.wait()
+
+            result.proc_output = self._stdout_io.to_bytes()
+            self._stdout_io.close()
+
+            error = self._stderr_io.to_bytes()
+            self._stderr_io.close()
+
+            if len(result.proc_output) > case.config.output_limit_length or len(error) > STDERR_LIMIT:
+                process.mark_ole()
+        else:
+            try:
+                result.proc_output, error = process.communicate(
+                    None, outlimit=case.config.output_limit_length, errlimit=STDERR_LIMIT
+                )
+            except OutputLimitExceeded:
+                error = b''
+                process.kill()
+            finally:
+                process.wait()
         return error
 
     def _generate_binary(self) -> BaseExecutor:
