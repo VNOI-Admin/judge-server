@@ -1,8 +1,9 @@
 import fcntl
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 from dmoj.cptbox.filesystem_policies import ExactFile, RecursiveDir
+from dmoj.executors.base_executor import BaseExecutor
 from dmoj.executors.compiled_executor import CompiledExecutor
 
 CARGO_TOML = b"""\
@@ -92,6 +93,15 @@ class Executor(CompiledExecutor):
         if self.shared_target is not None:
             # Closing also unlocks.
             os.close(self.shared_target_dirfd)
+
+    def clone(self) -> BaseExecutor:
+        cloned = cast('Executor', super().clone())
+        if self.shared_target is not None:
+            # The clone's executable lives in the flock-guarded shared target;
+            # dup'd fds share the lock, so it releases only after the original
+            # and every clone have closed theirs.
+            cloned.shared_target_dirfd = os.dup(self.shared_target_dirfd)
+        return cloned
 
     @classmethod
     def get_versionable_commands(cls) -> List[Tuple[str, str]]:
