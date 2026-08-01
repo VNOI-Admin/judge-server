@@ -73,6 +73,7 @@ int pt_process::spawn(pt_fork_handler child, void *context) {
         _exit(child(context));
     }
     this->pid = pid;
+    setpgid(pid, pid);
     debugger->new_process();
     return 0;
 }
