@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.executors.compiled_executor import CompiledExecutor
@@ -20,6 +20,11 @@ class NullStdoutMixin(CompiledExecutor):
         if hasattr(self, '_devnull'):
             self._devnull.close()
         super().cleanup()
+
+    def clone(self) -> BaseExecutor:
+        cloned = cast('NullStdoutMixin', super().clone())
+        cloned._devnull = open(os.devnull, 'w')
+        return cloned
 
     def get_compile_popen_kwargs(self) -> Dict[str, Any]:
         result = super().get_compile_popen_kwargs()

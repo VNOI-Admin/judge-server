@@ -1,3 +1,4 @@
+import copy
 import errno
 import os
 import re
@@ -181,6 +182,30 @@ class BaseExecutor(metaclass=ExecutorMeta):
         if self._dir is None:
             self._dir = tempfile.mkdtemp(dir=self._tempdir)
         return os.path.join(self._dir, *paths)
+
+    def clone(self) -> 'BaseExecutor':
+        assert self._dir is not None
+
+        # Copy before creating the clone object: were the clone to exist when
+        # this raises (ENOSPC, ...), its cleanup() would tear down state it
+        # still shares with the original, e.g. rmtree the original's directory.
+        old_dir = self._dir
+        new_dir = tempfile.mkdtemp(dir=self._tempdir)
+        try:
+            shutil.copytree(old_dir, new_dir, dirs_exist_ok=True)
+            clone = copy.copy(self)
+            clone._dir = new_dir
+        except Exception:
+            shutil.rmtree(new_dir, ignore_errors=True)
+            raise
+
+        # Repoint cached absolute paths (_executable, _code, ...) at the copy.
+        prefix = old_dir + os.sep
+        for attr, value in list(vars(clone).items()):
+            if isinstance(value, str) and value.startswith(prefix):
+                setattr(clone, attr, new_dir + value[len(old_dir) :])
+
+        return clone
 
     @classmethod
     def get_executor_name(cls) -> str:
