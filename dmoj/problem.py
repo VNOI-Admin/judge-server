@@ -91,7 +91,14 @@ class Problem:
             self.problem_data.test_size_limit = self.config.test_size_limit
 
         if not self._resolve_test_cases():
-            raise InvalidInitException('No test cases? What am I judging?')
+            # add dummy test case for archived problems
+            if 'archived' in self.config:
+                self.config['test_cases'] = [{
+                    'in': None,
+                    'out': None,
+                }]
+            else:
+                raise InvalidInitException('No test cases? What am I judging?')
 
     def _match_test_cases(
         self,
