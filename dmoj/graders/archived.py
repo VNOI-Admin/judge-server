@@ -31,15 +31,20 @@ class ArchivedGrader(StandardGrader):
         result = Result(case)
 
         result.execution_time = 0
+        result.feedback = None
 
         checker = self.problem.load_checker(self.problem.config['checker'])
 
-        with redirect_stdout(StringIO()) as stream:
-            score = float(checker.check(self.problem.problem_data.archive, self.zip_file))
-        result.points = case.points * score
+        try:
+            with redirect_stdout(StringIO()) as stream:
+                score = float(checker.check(self.problem.problem_data.archive, self.zip_file))
+            result.points = case.points * score
 
-        result.result_flag |= [Result.WA, Result.AC][score > 0]
-        result.feedback = None
-        result.extended_feedback = stream.getvalue()
+            result.result_flag |= [Result.WA, Result.AC][score > 0]
+            result.extended_feedback = stream.getvalue()
+        except Exception as e:
+            result.result_flag = Result.WA
+            result.points = 0
+            result.extended_feedback = 'Checker Error:\n' + str(e)
 
         return result
