@@ -175,7 +175,29 @@ setup(
         ]
     },
     ext_modules=cythonize(extensions),
-    install_requires=['watchdog', 'pyyaml', 'termcolor', 'pygments', 'setproctitle', 'pylru', 'requests', 'rouge_score', 'nltk', 'transformers', 'Pillow', 'pandas', 'scikit-learn', 'evaluate', 'sacrebleu', 'torch'],
+    install_requires=[
+        'watchdog',
+        'pyyaml',
+        'termcolor',
+        'pygments',
+        'setproctitle',
+        'pylru',
+        'requests',
+        # Used by custom checkers, not by the judge itself.
+        'rouge_score',
+        'nltk',
+        'transformers',
+        'Pillow',
+        'pandas',
+        'scikit-learn',
+        'evaluate',
+        'sacrebleu',
+        # On Linux, PyPI's torch pulls in the CUDA runtime, which a CPU-only judge cannot use and
+        # whose cuda-bindings package fails to import on Python 3.14. Install the CPU build first:
+        #     pip install --index-url https://download.pytorch.org/whl/cpu torch
+        # so this requirement is already satisfied. The Docker images do exactly that.
+        # 'torch',
+    ],
     tests_require=['requests', 'parameterized'],
     extras_require={'test': ['requests', 'parameterized']},
     cmdclass={'build_ext': build_ext_dmoj},
