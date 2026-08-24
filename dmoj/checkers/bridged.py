@@ -114,7 +114,8 @@ def check(
             )
 
     with mktemp(process_output) as output_file, mktemp(judge_output) as answer_file:
-        input_path = case.input_data_io().to_path()
+        input_io = case.input_data_io()
+        input_path = input_io.to_path()
 
         args_format_string = args_format_string or contrib_modules[type].ContribModule.get_checker_args_format_string()
 
@@ -132,6 +133,7 @@ def check(
             memory=memory_limit,
             time=time_limit,
             extra_fs=[ExactFile(input_path)],
+            keep_fds=[input_io.fileno()],
         )
 
         proc_output, error = process.communicate()

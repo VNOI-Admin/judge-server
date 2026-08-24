@@ -1,4 +1,5 @@
 #include "helper.h"
+#include "landlock_helpers.h"
 #include "ptbox.h"
 
 #include <dirent.h>
@@ -49,6 +50,8 @@ static inline void cptbox_close_fd(int fd) {
         ;
 }
 
+static inline bool fd_kept(int fd, const int *keep_fds);
+
 int cptbox_child_run(const struct child_config *config) {
 #ifndef __FreeBSD__
     // There is no ASLR on FreeBSD, but disable it elsewhere
@@ -95,6 +98,65 @@ int cptbox_child_run(const struct child_config *config) {
     kill(getpid(), SIGSTOP);
 
 #if !PTBOX_FREEBSD
+    // Landlock filesystem enforcement, applied after NO_NEW_PRIVS and before execve; restrictions
+    // are inherited across execve and only ever get stricter. Requires ABI 3 (Linux 6.2), the
+    // first version that governs the whole filesystem surface (truncation cannot be denied before
+    // it). No-op where Landlock is unavailable or disabled (older kernel, DMOJ_SANDBOX_MODE=
+    // ptrace+seccomp, or blocked by an outer seccomp filter e.g. Docker), leaving ptrace+seccomp
+    // in charge.
+    if (get_landlock_version() < 3) {
+        // Landlock unavailable or too old; leave ptrace+seccomp in charge.
+        goto seccomp_setup;
+    }
+    {
+        struct landlock_ruleset_attr ruleset_attr = {
+            .handled_access_fs =
+                LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_WRITE_FILE | LANDLOCK_ACCESS_FS_READ_FILE |
+                LANDLOCK_ACCESS_FS_READ_DIR | LANDLOCK_ACCESS_FS_REMOVE_DIR | LANDLOCK_ACCESS_FS_REMOVE_FILE |
+                LANDLOCK_ACCESS_FS_MAKE_CHAR | LANDLOCK_ACCESS_FS_MAKE_DIR | LANDLOCK_ACCESS_FS_MAKE_REG |
+                LANDLOCK_ACCESS_FS_MAKE_SOCK | LANDLOCK_ACCESS_FS_MAKE_FIFO | LANDLOCK_ACCESS_FS_MAKE_BLOCK |
+                LANDLOCK_ACCESS_FS_MAKE_SYM | LANDLOCK_ACCESS_FS_REFER | LANDLOCK_ACCESS_FS_TRUNCATE,
+        };
+        int ruleset_fd = landlock_create_ruleset(&ruleset_attr, sizeof(ruleset_attr), 0);
+        if (ruleset_fd < 0) {
+            perror("landlock_create_ruleset");
+            return PTBOX_SPAWN_FAIL_LANDLOCK;
+        }
+
+        // WRITE must imply READ: one rule must grant both, else an O_RDWR open fails even when
+        // separate rules grant read and write.
+        __u64 read_file = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_EXECUTE;
+        __u64 read_dir = LANDLOCK_ACCESS_FS_READ_DIR;
+        __u64 read_recursive = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_READ_DIR;
+        __u64 write_file = LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_WRITE_FILE |
+                           LANDLOCK_ACCESS_FS_TRUNCATE;
+        __u64 write_dir = LANDLOCK_ACCESS_FS_READ_DIR;
+        __u64 write_recursive =
+            LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_READ_DIR |
+            LANDLOCK_ACCESS_FS_WRITE_FILE | LANDLOCK_ACCESS_FS_TRUNCATE | LANDLOCK_ACCESS_FS_REMOVE_DIR |
+            LANDLOCK_ACCESS_FS_REMOVE_FILE | LANDLOCK_ACCESS_FS_MAKE_REG | LANDLOCK_ACCESS_FS_MAKE_DIR |
+            LANDLOCK_ACCESS_FS_MAKE_SYM | LANDLOCK_ACCESS_FS_MAKE_CHAR | LANDLOCK_ACCESS_FS_MAKE_SOCK |
+            LANDLOCK_ACCESS_FS_MAKE_FIFO | LANDLOCK_ACCESS_FS_MAKE_BLOCK | LANDLOCK_ACCESS_FS_REFER;
+
+        if (landlock_add_rules(ruleset_fd, config->landlock_read_exact_files, read_file) ||
+            landlock_add_rules(ruleset_fd, config->landlock_read_exact_dirs, read_dir) ||
+            landlock_add_rules(ruleset_fd, config->landlock_read_recursive_dirs, read_recursive) ||
+            landlock_add_rules(ruleset_fd, config->landlock_write_exact_files, write_file) ||
+            landlock_add_rules(ruleset_fd, config->landlock_write_exact_dirs, write_dir) ||
+            landlock_add_rules(ruleset_fd, config->landlock_write_recursive_dirs, write_recursive)) {
+            close(ruleset_fd);
+            return PTBOX_SPAWN_FAIL_LANDLOCK;
+        }
+
+        if (landlock_restrict_self(ruleset_fd, 0)) {
+            perror("landlock_restrict_self");
+            close(ruleset_fd);
+            return PTBOX_SPAWN_FAIL_LANDLOCK;
+        }
+        close(ruleset_fd);
+    }
+
+seccomp_setup:
     __attribute__((cleanup(seccomp_release))) scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_TRACE(0));
     if (!ctx) {
         fprintf(stderr, "Failed to initialize seccomp context!");
@@ -139,15 +201,7 @@ int cptbox_child_run(const struct child_config *config) {
         return PTBOX_SPAWN_FAIL_DUP2;
     if (config->stderr_ >= 0 && dup2(config->stderr_, 2) < 0)
         return PTBOX_SPAWN_FAIL_DUP2;
-    if (config->fd_3_ >= 0)
-        dup2(config->fd_3_, 3);
-    else
-        cptbox_close_fd(3);
-    if (config->fd_4_ >= 0)
-        dup2(config->fd_4_, 4);
-    else
-        cptbox_close_fd(4);
-    cptbox_closefrom(5);
+    cptbox_closefrom(3, config->keep_open_fds);
 
     // All these limits should be dropped after initializing seccomp, since seccomp allocates
     // memory, and if an arena isn't sufficiently free it could force seccomp into an OOM
@@ -181,6 +235,27 @@ int cptbox_child_run(const struct child_config *config) {
     return PTBOX_SPAWN_FAIL_EXECVE;
 }
 
+int get_landlock_version() {
+#if !PTBOX_FREEBSD
+    const char *sandbox_mode = getenv("DMOJ_SANDBOX_MODE");
+    if (sandbox_mode != nullptr && strcmp(sandbox_mode, "ptrace+seccomp") == 0) {
+        // Allow forcing Landlock off.
+        return 0;
+    }
+
+    int version = landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
+    if (version >= 0)
+        return version;
+    // ENOSYS: kernel too old / Landlock not built in. EOPNOTSUPP: Landlock disabled at boot.
+    // EPERM/EACCES: blocked by an outer seccomp filter (e.g. Docker's default profile).
+    if (errno == ENOSYS || errno == EOPNOTSUPP || errno == EPERM || errno == EACCES)
+        return 0;
+    return -1;
+#else
+    return 0;  // FreeBSD has no Landlock.
+#endif
+}
+
 // From python's _posixsubprocess
 static int pos_int_from_ascii(char *name) {
     int num = 0;
@@ -193,15 +268,24 @@ static int pos_int_from_ascii(char *name) {
     return num;
 }
 
-static void cptbox_closefrom_brute(int lowfd) {
+static inline bool fd_kept(int fd, const int *keep_fds) {
+    if (keep_fds)
+        for (const int *k = keep_fds; *k >= 0; ++k)
+            if (*k == fd)
+                return true;
+    return false;
+}
+
+static void cptbox_closefrom_brute(int lowfd, const int *keep_fds) {
     int max_fd = sysconf(_SC_OPEN_MAX);
     if (max_fd < 0)
         max_fd = 16384;
     for (; lowfd <= max_fd; ++lowfd)
-        cptbox_close_fd(lowfd);
+        if (!fd_kept(lowfd, keep_fds))
+            cptbox_close_fd(lowfd);
 }
 
-static inline void cptbox_closefrom_dirent(int lowfd) {
+static inline void cptbox_closefrom_dirent(int lowfd, const int *keep_fds) {
     DIR *d = opendir(FD_DIR);
     dirent *dir;
 
@@ -210,16 +294,16 @@ static inline void cptbox_closefrom_dirent(int lowfd) {
         errno = 0;
         while ((dir = readdir(d))) {
             int fd = pos_int_from_ascii(dir->d_name);
-            if (fd < lowfd || fd == fd_dirent)
+            if (fd < lowfd || fd == fd_dirent || fd_kept(fd, keep_fds))
                 continue;
             cptbox_close_fd(fd);
             errno = 0;
         }
         if (errno)
-            cptbox_closefrom_brute(lowfd);
+            cptbox_closefrom_brute(lowfd, keep_fds);
         closedir(d);
     } else
-        cptbox_closefrom_brute(lowfd);
+        cptbox_closefrom_brute(lowfd, keep_fds);
 }
 
 // Borrowing some SYS_getdents64 magic from python's _posixsubprocess.
@@ -240,10 +324,10 @@ struct linux_dirent64 {
     char d_name[256];
 };
 
-static inline void cptbox_closefrom_getdents(int lowfd) {
+static inline void cptbox_closefrom_getdents(int lowfd, const int *keep_fds) {
     int fd_dir = open(FD_DIR, O_RDONLY, 0);
     if (fd_dir == -1) {
-        cptbox_closefrom_brute(lowfd);
+        cptbox_closefrom_brute(lowfd, keep_fds);
     } else {
         char buffer[sizeof(struct linux_dirent64)];
         int bytes;
@@ -255,7 +339,7 @@ static inline void cptbox_closefrom_getdents(int lowfd) {
                 entry = (struct linux_dirent64 *) (buffer + offset);
                 if ((fd = pos_int_from_ascii(entry->d_name)) < 0)
                     continue; /* Not a number. */
-                if (fd != fd_dir && fd >= lowfd)
+                if (fd != fd_dir && fd >= lowfd && !fd_kept(fd, keep_fds))
                     cptbox_close_fd(fd);
             }
         }
@@ -264,13 +348,17 @@ static inline void cptbox_closefrom_getdents(int lowfd) {
 }
 #endif
 
-void cptbox_closefrom(int lowfd) {
+void cptbox_closefrom(int lowfd, const int *keep_fds) {
 #if defined(__FreeBSD__)
-    closefrom(lowfd);
+    // closefrom(2) can't skip individual fds; fall back to the manual sweep when some must be kept.
+    if (keep_fds && keep_fds[0] >= 0)
+        cptbox_closefrom_dirent(lowfd, keep_fds);
+    else
+        closefrom(lowfd);
 #elif defined(__linux__)
-    cptbox_closefrom_getdents(lowfd);
+    cptbox_closefrom_getdents(lowfd, keep_fds);
 #else
-    cptbox_closefrom_dirent(lowfd);
+    cptbox_closefrom_dirent(lowfd, keep_fds);
 #endif
 }
 

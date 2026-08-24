@@ -7,8 +7,10 @@ from dmoj.cptbox._cptbox import (
     PTBOX_ABI_X32,
     PTBOX_ABI_X64,
     PTBOX_ABI_X86,
+    has_landlock,
+    landlock_version,
 )
 from dmoj.cptbox.handlers import ALLOW, DISALLOW
 from dmoj.cptbox.isolate import FilesystemSyscallKind, IsolateTracer
 from dmoj.cptbox.syscalls import SYSCALL_COUNT
-from dmoj.cptbox.tracer import FILE_IO_PIPE, PIPE, TracedPopen, can_debug
+from dmoj.cptbox.tracer import PIPE, TracedPopen, can_debug
