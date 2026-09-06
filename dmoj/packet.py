@@ -10,10 +10,15 @@ import threading
 import time
 import traceback
 import zlib
-from typing import List, Optional, TYPE_CHECKING, Tuple
+from typing import Dict, List, Optional, TYPE_CHECKING, Tuple
 
 from dmoj import sysinfo
-from dmoj.judgeenv import get_runtime_versions, get_supported_problems_and_mtimes
+from dmoj.judgeenv import (
+    get_judge_version,
+    get_problem_storages,
+    get_runtime_versions,
+    get_supported_problems_and_mtimes,
+)
 from dmoj.result import Result
 from dmoj.utils.unicode import utf8bytes, utf8text
 
@@ -89,6 +94,7 @@ class PacketManager:
 
     def _connect(self):
         problems = get_supported_problems_and_mtimes()
+        storages = get_problem_storages()
         versions = get_runtime_versions()
 
         log.info('Opening connection to: [%s]:%s', self.host, self.port)
@@ -111,7 +117,7 @@ class PacketManager:
 
         log.info('Starting handshake with: [%s]:%s', self.host, self.port)
         self.input = self.conn.makefile('rb')
-        self.handshake(problems, versions, self.name, self.key)
+        self.handshake(problems, versions, self.name, self.key, storages, get_judge_version())
         log.info('Judge "%s" online: [%s]:%s', self.name, self.host, self.port)
         self.online = True
 
@@ -287,8 +293,26 @@ class PacketManager:
         else:
             log.error('Unknown packet %s, payload %s', name, packet)
 
-    def handshake(self, problems: str, runtimes, id: str, key: str):
-        self._send_packet({'name': 'handshake', 'problems': problems, 'executors': runtimes, 'id': id, 'key': key})
+    def handshake(
+        self,
+        problems: str,
+        runtimes,
+        id: str,
+        key: str,
+        storages: Optional[List[Dict[str, Optional[str]]]] = None,
+        version: int = 1,
+    ):
+        self._send_packet(
+            {
+                'name': 'handshake',
+                'version': version,
+                'problems': problems,
+                'storages': storages,
+                'executors': runtimes,
+                'id': id,
+                'key': key,
+            }
+        )
         log.info('Awaiting handshake response: [%s]:%s', self.host, self.port)
         try:
             data = self.input.read(PacketManager.SIZE_PACK.size)

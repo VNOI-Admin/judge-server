@@ -17,6 +17,8 @@ from dmoj.utils.glob_ext import find_glob_root
 from dmoj.utils.unicode import utf8text
 
 storage_namespaces: Dict[Optional[str], List[str]] = {}
+# [{'id': ..., 'namespace': ...}]
+problem_storages: Optional[List[Dict[str, Optional[str]]]] = None
 problem_globs: List[str] = []
 problem_watches: List[str] = []
 env: ConfigNode = ConfigNode(
@@ -87,7 +89,7 @@ _storage_namespace_cache: Dict[Optional[str], StorageNamespaceCache] = defaultdi
 
 
 def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no cover
-    global problem_globs, only_executors, exclude_executors, log_file, server_host, server_port, no_ansi, skip_self_test, no_watchdog, problem_regex, case_regex, api_listen, secure, no_cert_check, cert_store, problem_watches, cli_history_file, cli_command, log_level
+    global problem_globs, problem_storages, only_executors, exclude_executors, log_file, server_host, server_port, no_ansi, skip_self_test, no_watchdog, problem_regex, case_regex, api_listen, secure, no_cert_check, cert_store, problem_watches, cli_history_file, cli_command, log_level
 
     if cli:
         description = 'Starts a shell for interfacing with a local judge instance.'
@@ -213,8 +215,20 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
         env['key'] = os.environ['DMOJ_JUDGE_KEY']
 
     if not testsuite:
-        storage_namespaces[None] = env.problem_storage_globs or []
-        storage_namespaces.update(env.storage_namespaces or {})
+        if get_judge_version() != 1:
+            no_watchdog = True
+            problem_storages = []
+
+            def _register_storage_entries(raw_entries, namespace: Optional[str]) -> None:
+                storage_namespaces[namespace] = [entry.glob for entry in raw_entries]
+                problem_storages.extend({'id': entry.id, 'namespace': namespace} for entry in raw_entries)
+
+            _register_storage_entries(env.problem_storage_globs or [], None)
+            for namespace, raw_entries in (env.storage_namespaces or {}).items():
+                _register_storage_entries(raw_entries, namespace)
+        else:
+            storage_namespaces[None] = env.problem_storage_globs or []
+            storage_namespaces.update(env.storage_namespaces or {})
 
         all_problem_globs = []
         for globs in storage_namespaces.values():
@@ -248,18 +262,27 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
         _storage_namespace_cache[namespace] = StorageNamespaceCache()
 
     skip_first_scan = False if cli else args.skip_first_scan
-    if not skip_first_scan:
-        # Populate cache and send warnings
-        get_supported_problems_and_mtimes()
-    else:
+    if get_judge_version() != 1 or skip_first_scan:
+        # resolve root directories if full-scan is skipped
         for namespace, globs in storage_namespaces.items():
             cache = _storage_namespace_cache[namespace]
             cache.problem_roots_cache = [str(root) for root in map(find_glob_root, globs)]
             cache.supported_problems_cache = []
+    else:
+        # Populate cache and send warnings
+        get_supported_problems_and_mtimes()
 
 
 def get_problem_watches():
     return problem_watches
+
+
+def get_problem_storages() -> Optional[List[Dict[str, Optional[str]]]]:
+    return problem_storages
+
+
+def get_judge_version() -> int:
+    return env.judge_version or 1
 
 
 def get_problem_root(problem_id, namespace=None) -> Optional[str]:
@@ -294,6 +317,10 @@ def get_supported_problems_and_mtimes(warnings: bool = True, force_update: bool 
     :return:
         A list of all problems in tuple format: (problem id, mtime)
     """
+
+    if get_judge_version() != 1:
+        # don't need to enumerate problems in new judge version
+        return []
 
     cache = _storage_namespace_cache[None]
 
