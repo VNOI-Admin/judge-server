@@ -30,10 +30,10 @@ void main() {
         'ftruncate',
     ]
 
-    def get_security(self, launch_kwargs=None, extra_fs=None):
+    def get_security(self, launch_kwargs=None, extra_fs=None, extra_write_fs=None):
         from dmoj.cptbox.syscalls import sys_execve
 
-        sec = super().get_security(launch_kwargs=launch_kwargs, extra_fs=extra_fs)
+        sec = super().get_security(launch_kwargs=launch_kwargs, extra_fs=extra_fs, extra_write_fs=extra_write_fs)
 
         def handle_execve(debugger) -> None:
             path = debugger.readstr(debugger.uarg0)

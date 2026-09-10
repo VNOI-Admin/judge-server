@@ -9,6 +9,7 @@ import threading
 from typing import Callable, List, Mapping, Optional, Tuple, Type
 
 from dmoj.cptbox._cptbox import *
+from dmoj.cptbox.filesystem_policies import ExactDir, ExactFile, FilesystemAccessRule, RecursiveDir
 from dmoj.cptbox.handlers import ALLOW, DISALLOW, ErrnoHandlerCallback, _CALLBACK
 from dmoj.cptbox.syscalls import SYSCALL_COUNT, by_id, sys_execve, sys_exit, sys_exit_group, sys_getpid, translator
 from dmoj.utils.communicate import safe_communicate as _safe_communicate
@@ -17,8 +18,7 @@ from dmoj.utils.unicode import utf8bytes, utf8text
 
 PIPE = subprocess.PIPE
 STDOUT = subprocess.STDOUT
-FILE_IO_PIPE = -4
-assert FILE_IO_PIPE != PIPE and FILE_IO_PIPE != STDOUT
+DEVNULL = subprocess.DEVNULL
 
 log = logging.getLogger('dmoj.cptbox')
 
@@ -111,8 +111,6 @@ class TracedPopen(Process):
         stdin: Optional[int] = PIPE,
         stdout: Optional[int] = PIPE,
         stderr: Optional[int] = None,
-        child_stdin: Optional[int] = None,
-        child_stdout: Optional[int] = None,
         env: Optional[Mapping[str, Optional[str]]] = None,
         nproc: int = 0,
         fsize: int = 0,
@@ -122,8 +120,10 @@ class TracedPopen(Process):
         cwd: bytes = b'',
         wall_time: Optional[float] = None,
         cpu_affinity: Optional[List[int]] = None,
+        keep_fds: Optional[List[int]] = None,
     ) -> None:
         self._executable = executable
+        self.keep_fds = list(keep_fds or [])
 
         if BAD_SECCOMP:
             raise RuntimeError(f'Sandbox requires Linux 4.8+ to use seccomp, you have {os.uname().release}')
@@ -151,11 +151,15 @@ class TracedPopen(Process):
 
         self._is_tle = False
         self._is_ole = False
-        self.__init_streams(stdin, stdout, stderr, child_stdin, child_stdout)
+        self.__init_streams(stdin, stdout, stderr)
         self._last_ptrace_errno = None
         self.protection_fault = None
 
         self._security = security
+        if security is not None:
+            self.configure_files(security.read_fs, security.write_fs)
+        else:
+            self.configure_files([], [])
         self._callbacks = [[None] * MAX_SYSCALL_NUMBER for _ in range(PTBOX_ABI_COUNT)]
         if security is None:
             self._trace_syscalls = False
@@ -212,6 +216,19 @@ class TracedPopen(Process):
                     handlers[call] = handler.errno
         return handlers
 
+    def configure_files(self, read_fs: List[FilesystemAccessRule], write_fs: List[FilesystemAccessRule]) -> None:
+        # Translate the FilesystemPolicy rules into per-kind path lists for the Landlock ruleset
+        # built in the child (helper.cpp). Mirrors the read_fs/write_fs the ptrace policy uses.
+        def _paths(source: List[FilesystemAccessRule], kind: Type[FilesystemAccessRule]) -> List[bytes]:
+            return [utf8bytes(rule.path) for rule in source if isinstance(rule, kind)]
+
+        self.landlock_read_exact_files = _paths(read_fs, ExactFile)
+        self.landlock_read_exact_dirs = _paths(read_fs, ExactDir)
+        self.landlock_read_recursive_dirs = _paths(read_fs, RecursiveDir)
+        self.landlock_write_exact_files = _paths(write_fs, ExactFile)
+        self.landlock_write_exact_dirs = _paths(write_fs, ExactDir)
+        self.landlock_write_recursive_dirs = _paths(write_fs, RecursiveDir)
+
     def wait(self) -> int:
         self._died.wait()
         assert self.returncode is not None
@@ -236,6 +253,8 @@ class TracedPopen(Process):
                 raise RuntimeError('failed to chdir child')
             elif self.returncode == PTBOX_SPAWN_FAIL_DUP2:
                 raise RuntimeError('failed to dup child stdio')
+            elif self.returncode == PTBOX_SPAWN_FAIL_LANDLOCK:
+                raise RuntimeError('failed to set up landlock')
             elif self.returncode >= 0:
                 raise RuntimeError('process failed to initialize with unknown exit code: %d' % self.returncode)
         return self.returncode
@@ -347,10 +366,6 @@ class TracedPopen(Process):
                 os.close(self._child_stdout)
             if self.stderr_needs_close:
                 os.close(self._child_stderr)
-            if self.fd_3_needs_close:
-                os.close(self._child_fd_3)
-            if self.fd_4_needs_close:
-                os.close(self._child_fd_4)
             if hasattr(self, '_devnull'):
                 os.close(self._devnull)
 
@@ -401,24 +416,16 @@ class TracedPopen(Process):
             self._devnull = os.open(os.devnull, os.O_RDWR)
         return self._devnull
 
-    def __init_streams(self, stdin, stdout, stderr, child_stdin, child_stdout) -> None:
+    def __init_streams(self, stdin, stdout, stderr) -> None:
         self.stdin = self.stdout = self.stderr = None
         self.stdin_needs_close = self.stdout_needs_close = self.stderr_needs_close = False
-        self.fd_3_needs_close = self.fd_4_needs_close = False
-        self._child_fd_3 = self._child_fd_4 = -1
 
-        if stdin == FILE_IO_PIPE:
-            if isinstance(child_stdin, int) and child_stdin >= 0:
-                self._child_stdin = child_stdin
-            else:
-                self._child_stdin = self._get_devnull()
-            self._child_fd_3, self._stdin = os.pipe()
-            self.stdin = os.fdopen(self._stdin, 'wb')
-            self.fd_3_needs_close = True
-        elif stdin == PIPE:
+        if stdin == PIPE:
             self._child_stdin, self._stdin = os.pipe()
             self.stdin = os.fdopen(self._stdin, 'wb')
             self.stdin_needs_close = True
+        elif stdin == DEVNULL:
+            self._stdin, self._child_stdin = -1, self._get_devnull()
         elif isinstance(stdin, int):
             self._child_stdin, self._stdin = stdin, -1
         elif stdin is not None:
@@ -426,18 +433,12 @@ class TracedPopen(Process):
         else:
             self._child_stdin = self._stdin = -1
 
-        if stdout == FILE_IO_PIPE:
-            if isinstance(child_stdout, int) and child_stdout >= 0:
-                self._child_stdout = child_stdout
-            else:
-                self._child_stdout = self._get_devnull()
-            self._stdout, self._child_fd_4 = os.pipe()
-            self.stdout = os.fdopen(self._stdout, 'rb')
-            self.fd_4_needs_close = True
-        elif stdout == PIPE:
+        if stdout == PIPE:
             self._stdout, self._child_stdout = os.pipe()
             self.stdout = os.fdopen(self._stdout, 'rb')
             self.stdout_needs_close = True
+        elif stdout == DEVNULL:
+            self._stdout, self._child_stdout = -1, self._get_devnull()
         elif isinstance(stdout, int):
             self._stdout, self._child_stdout = -1, stdout
         elif stdout is not None:
