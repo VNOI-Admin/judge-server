@@ -18,6 +18,11 @@ g++ -std=c++17 $FLAGS          /usr/include/testlib_themis_cms.h -o /usr/include
 # Precompile bits/stdc++.h
 IFS=$'\n' files=( $(find /usr/include/ -name stdc++.h) );
 for item in "${files[@]}"; {
+  # add cassert back, it was remove in G++ 16
+  # more info: https://github.com/gcc-mirror/gcc/commit/eaf6b40f761049ba4f74fd8bf1bc011e3c59c53b
+  if ! grep -q '#include <cassert>' "$item"; then
+    sed -i '/^#include <cstdio>/a#include <cassert>' "$item"
+  fi
   GCH_DIR="$item".gch
   mkdir -p $GCH_DIR
   eval "g++ -std=c++03 $FLAGS -o $GCH_DIR/cpp03 $item"
