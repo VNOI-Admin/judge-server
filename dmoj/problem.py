@@ -281,13 +281,15 @@ class ProblemDataManager(dict):
 
     def open(self, key: str):
         try:
-            if self.archive:
-                zipinfo = self.archive.getinfo(key)
-                if zipinfo.file_size > self.test_size_limit * 1024:
-                    raise InternalError('test file is too large: %s' % key)
-                return self.archive.open(zipinfo)
-            return open(os.path.join(self.problem_root_dir, key), 'rb')
-        except (KeyError, IOError):
+            try:
+                if self.archive:
+                    zipinfo = self.archive.getinfo(key)
+                    if zipinfo.file_size > self.test_size_limit * 1024:
+                        raise InternalError('test file is too large: %s' % key)
+                    return self.archive.open(zipinfo)
+            except KeyError:
+                return open(os.path.join(self.problem_root_dir, key), 'rb')
+        except IOError:
             raise KeyError('file "%s" could not be found in "%s"' % (key, self.problem_root_dir))
 
     def as_fd(self, key: str, normalize: bool = False) -> MmapableIO:
