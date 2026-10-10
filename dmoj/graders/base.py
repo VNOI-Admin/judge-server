@@ -17,6 +17,9 @@ class BaseGrader:
     judge: 'JudgeWorker'
     binary: BaseExecutor
     _current_proc: Optional[TracedPopen]
+    # Whether test cases may be graded concurrently, each in a forked copy of this grader. Graders that carry state
+    # from one test case to the next must set this to False.
+    supports_parallel = True
 
     def __init__(self, judge: 'JudgeWorker', problem: Problem, language: str, source: bytes) -> None:
         self.source = utf8bytes(source)

@@ -61,6 +61,14 @@ env: ConfigNode = ConfigNode(
         'tempdir': None,
         # CPU affinity (as a list of 0-indexed CPU IDs) to run submissions on
         'submission_cpu_affinity': None,
+        # Number of test cases of a submission to grade concurrently, each in its own forked process. Ignored if
+        # `parallel_cpus` is set.
+        'parallel_workers': 1,
+        # CPUs to grade test cases concurrently on, one grading slot per entry. An entry is a CPU ID, or a list of CPU
+        # IDs (e.g. two CPUs for interactive problems). Every process of a slot is pinned to its CPUs.
+        'parallel_cpus': None,
+        # Submissions to problems with fewer test cases than this are graded sequentially.
+        'parallel_min_cases': 2,
     },
     dynamic=False,
 )
@@ -261,6 +269,8 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
     for namespace in storage_namespaces:
         _storage_namespace_cache[namespace] = StorageNamespaceCache()
 
+    _check_parallel_slots()
+
     skip_first_scan = False if cli else args.skip_first_scan
     if get_judge_version() != 1 or skip_first_scan:
         # resolve root directories if full-scan is skipped
@@ -271,6 +281,66 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
     else:
         # Populate cache and send warnings
         get_supported_problems_and_mtimes()
+
+
+def get_parallel_slots() -> List[Optional[List[int]]]:
+    """
+    Returns the grading slots for concurrent test case grading: for each slot, the CPUs to pin it to (or None).
+    """
+    cpus = env.parallel_cpus
+    if cpus:
+        return [[entry] if isinstance(entry, int) else list(entry) for entry in cpus.unwrap()]
+    return [None] * max(1, int(env.parallel_workers or 1))
+
+
+def _cpu_siblings(cpu: int) -> Set[int]:
+    try:
+        with open('/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list' % cpu) as f:
+            text = f.read().strip()
+    except OSError:
+        return {cpu}
+
+    siblings: Set[int] = set()
+    for part in text.split(','):
+        low, _, high = part.partition('-')
+        siblings.update(range(int(low), int(high or low) + 1))
+    return siblings
+
+
+def _check_parallel_slots() -> None:
+    if not env.parallel_cpus:
+        if int(env.parallel_workers or 1) > 1:
+            startup_warnings.append(
+                'parallel_workers is set without parallel_cpus, concurrently graded test cases are not pinned to '
+                'dedicated CPUs and may slow each other down'
+            )
+        return
+
+    slots = get_parallel_slots()
+    available = os.sched_getaffinity(0)
+    seen: Dict[int, int] = {}
+    for slot_number, slot in enumerate(slots):
+        if not slot:
+            raise SystemExit('parallel_cpus: slot %d has no CPUs' % slot_number)
+        for cpu in slot:
+            if not isinstance(cpu, int) or not 0 <= cpu < 64:
+                raise SystemExit('parallel_cpus: invalid CPU %r, CPU IDs must be integers in [0, 64)' % (cpu,))
+            if cpu not in available:
+                raise SystemExit('parallel_cpus: CPU %d is not available to the judge' % cpu)
+            if cpu in seen:
+                raise SystemExit('parallel_cpus: CPU %d is used by more than one slot' % cpu)
+            seen[cpu] = slot_number
+
+    for cpu, slot_number in seen.items():
+        for sibling in _cpu_siblings(cpu):
+            if cpu < sibling and seen.get(sibling, slot_number) != slot_number:
+                startup_warnings.append(
+                    'parallel_cpus: CPUs %d and %d are hyperthreads of the same core, test cases graded on them will '
+                    'slow each other down' % (cpu, sibling)
+                )
+
+    if env.submission_cpu_affinity:
+        startup_warnings.append('parallel_cpus overrides submission_cpu_affinity when grading concurrently')
 
 
 def get_problem_watches():

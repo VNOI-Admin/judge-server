@@ -51,6 +51,11 @@ def merge_results(first_result: Result, second_result: Result):
 
 
 class CommunicationGrader(StandardGrader):
+    # Concurrently graded cases of the same problem crash the manager or user processes (SIGSEGV) every few runs; this
+    # also happens across independent judge processes on one host, so it is not specific to parallel grading. Grade
+    # sequentially until that is understood.
+    supports_parallel = False
+
     _fifo_dir: List[str]
     _fifo_user_to_manager: List[str]
     _fifo_manager_to_user: List[str]

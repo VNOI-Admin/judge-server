@@ -15,6 +15,9 @@ if TYPE_CHECKING:
 
 
 class OutputOnlyGrader(StandardGrader):
+    # Nothing is executed, so there is nothing to gain.
+    supports_parallel = False
+
     def __init__(self, judge: 'JudgeWorker', problem: Problem, language: str, source: bytes) -> None:
         super().__init__(judge, problem, language, source)
         if language == 'OUTPUT':

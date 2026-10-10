@@ -14,9 +14,10 @@ from operator import itemgetter
 from typing import Any, Callable, Dict, Generator, List, NamedTuple, Optional, Set, Tuple
 
 from dmoj import packet
+from dmoj.case_pool import CasePool
 from dmoj.control import JudgeControlRequestHandler
 from dmoj.error import CompileError
-from dmoj.judgeenv import env, get_supported_problems_and_mtimes, startup_warnings
+from dmoj.judgeenv import env, get_parallel_slots, get_supported_problems_and_mtimes, startup_warnings
 from dmoj.monitor import Monitor
 from dmoj.problem import BaseTestCase, BatchedTestCase, Problem, TestCase
 from dmoj.result import Result
@@ -326,6 +327,8 @@ class JudgeWorker:
         self._sent_sigkill_to_worker_process = False
         # FIXME(tbrindus): marked Any pending grader cleanups.
         self.grader: Any = None
+        self.case_pool: Optional[CasePool] = None
+        self._judge_process_conn: Optional['multiprocessing.connection.Connection'] = None
 
         self.mp_contex = multiprocessing.get_context('fork')
         self.worker_process_conn, child_conn = self.mp_contex.Pipe()
@@ -394,6 +397,7 @@ class JudgeWorker:
         IPC.
         """
         worker_process_conn.close()
+        self._judge_process_conn = judge_process_conn
         setproctitle(multiprocessing.current_process().name)
 
         def _ipc_recv_thread_main() -> None:
@@ -484,6 +488,23 @@ class JudgeWorker:
 
         yield IPC.GRADING_BEGIN, (problem.run_pretests_only,)
 
+        flattened_cases, batch_dependencies = self._flatten_cases(problem)
+
+        self.case_pool = self._create_case_pool(problem, flattened_cases, batch_dependencies)
+        if self.case_pool is None:
+            yield from self._commit_results(flattened_cases, batch_dependencies, lambda _, case: self.grader.grade(case))
+            return
+
+        try:
+            self.case_pool.start()
+            if self._abort_requested:
+                self.case_pool.abort()
+            yield from self._commit_results(flattened_cases, batch_dependencies, self.case_pool.get)
+        finally:
+            self.case_pool.close()
+
+    @staticmethod
+    def _flatten_cases(problem: Problem) -> Tuple[List[Tuple[Optional[int], BaseTestCase]], List[Set[int]]]:
         flattened_cases: List[Tuple[Optional[int], BaseTestCase]] = []
         batch_number = 0
         batch_dependencies: List[Set[int]] = []
@@ -495,7 +516,39 @@ class JudgeWorker:
                 batch_dependencies.append(set(case.dependencies))
             else:
                 flattened_cases.append((None, case))
+        return flattened_cases, batch_dependencies
 
+    def _create_case_pool(
+        self,
+        problem: Problem,
+        flattened_cases: List[Tuple[Optional[int], BaseTestCase]],
+        batch_dependencies: List[Set[int]],
+    ) -> Optional[CasePool]:
+        slots = get_parallel_slots()
+        if (
+            len(slots) < 2
+            or len(flattened_cases) < max(2, env.parallel_min_cases or 0)
+            or not getattr(self.grader, 'supports_parallel', False)
+            or problem.config.parallel is False
+            or self._abort_requested
+        ):
+            return None
+
+        return CasePool(
+            self.grader,
+            flattened_cases,
+            batch_dependencies,
+            self.submission.short_circuit,
+            slots,
+            inherited_conns=[self._judge_process_conn] if self._judge_process_conn else [],
+        )
+
+    def _commit_results(
+        self,
+        flattened_cases: List[Tuple[Optional[int], BaseTestCase]],
+        batch_dependencies: List[Set[int]],
+        grade_case: Callable[[int, BaseTestCase], Result],
+    ) -> Generator[Tuple[IPC, tuple], None, None]:
         case_number = 0
         is_short_circuiting = False
         is_short_circuiting_enabled = self.submission.short_circuit
@@ -522,7 +575,7 @@ class JudgeWorker:
                     result = judged_results.get(case_cache_key, None)
 
                     if result is None:
-                        result = self.grader.grade(case)
+                        result = grade_case(case_number - 1, case)
                         # only cache on case has positive points
                         if case.points != 0 and case_cache_key != (None, None):
                             judged_results[case_cache_key] = result
@@ -567,6 +620,8 @@ class JudgeWorker:
 
     def _do_abort(self) -> None:
         self._abort_requested = True
+        if self.case_pool:
+            self.case_pool.abort()
         if self.grader:
             self.grader.abort_grading()
 
