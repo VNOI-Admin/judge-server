@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import errno
 import os
@@ -101,6 +102,27 @@ UTF8_LOCALE = 'C.UTF-8'
 
 if sys.platform.startswith('freebsd') and sys.platform < 'freebsd13':
     UTF8_LOCALE = 'en_US.UTF-8'
+
+
+def install_file_atomically(src: str, dst: str) -> None:
+    """
+    Copies `src` to `dst` without ever exposing a partially written `dst`.
+
+    Executor directories are shared: cached executors (managers, interactors, checkers...) by every judge on the host,
+    and a submission's binary by the processes grading its test cases concurrently. Rewriting `dst` in place while
+    another process is loading it (e.g. as LD_PRELOAD) makes that process crash with SIGBUS or jump to garbage, so
+    write a temporary file and rename it over `dst`; processes using the old file keep their copy.
+    """
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(dst), prefix='.' + os.path.basename(dst) + '.')
+    try:
+        os.close(fd)
+        shutil.copyfile(src, tmp)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, dst)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
 
 
 class ExecutorMeta(type):
@@ -360,7 +382,7 @@ class BaseExecutor(metaclass=ExecutorMeta):
             create_symlink(dst, src)
 
         agent = self._file('setbufsize.so')
-        shutil.copyfile(setbufsize_path, agent)
+        install_file_atomically(setbufsize_path, agent)
         child_env = {
             # Forward LD_LIBRARY_PATH for systems (e.g. Android Termux) that require
             # it to find shared libraries
