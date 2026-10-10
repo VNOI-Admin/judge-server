@@ -1,4 +1,4 @@
-from typing import Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from dmoj.cptbox import TracedPopen
 from dmoj.executors.base_executor import BaseExecutor
@@ -35,6 +35,23 @@ class BaseGrader:
 
     def _generate_binary(self) -> BaseExecutor:
         raise NotImplementedError
+
+    def use_private_executors(self) -> List[BaseExecutor]:
+        """
+        Called in each forked process grading cases concurrently. Launching the submission writes into its directory
+        (symlinks, file IO links to the current case's input), so each process needs its own copy.
+
+        Returns the replaced executors: the caller must keep them alive, since dropping the last reference would delete
+        the directory the other processes still use.
+        """
+        shared = self.binary
+        if getattr(shared, '_dir', None) is None:
+            return []
+        self.binary = shared.clone()
+        return [shared]
+
+    def cleanup_private_executors(self) -> None:
+        self.binary.cleanup()
 
     def abort_grading(self) -> None:
         self._abort_requested = True

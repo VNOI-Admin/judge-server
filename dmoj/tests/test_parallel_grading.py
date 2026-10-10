@@ -1,13 +1,17 @@
 import multiprocessing
+import os
 import random
+import tempfile
 import threading
 import time
 import unittest
+import zipfile
 from typing import Dict, List, Optional, Set, Tuple
+from unittest import mock
 
 from dmoj.case_pool import CasePool, GradingChildError
 from dmoj.judge import IPC, JudgeWorker, Submission
-from dmoj.problem import TestCase
+from dmoj.problem import ProblemDataManager, TestCase
 from dmoj.result import Result
 
 
@@ -112,6 +116,24 @@ def summarize(messages) -> List[tuple]:
     return summary
 
 
+class ArchiveCase(FakeCase):
+    def __init__(self, position: int, problem) -> None:
+        super().__init__(position, 1, 'case%d.in' % position, 'case%d.out' % position)
+        self.problem = problem
+
+
+class ArchiveGrader(FakeGrader):
+    # Reads the case's data from the problem archive, like a real grader does.
+    def grade(self, case: ArchiveCase) -> Result:
+        data = case.problem.problem_data.open(case.config['in']).read()
+        flag = Result.AC if data == expected_archive_data(case.position) else Result.WA
+        return Result(case, result_flag=flag, points=case.points if flag == Result.AC else 0)
+
+
+def expected_archive_data(position: int) -> bytes:
+    return random.Random(position).randbytes(1 << 18)
+
+
 class ParallelGradingTest(unittest.TestCase):
     def grade_sequentially(self, cases, dependencies, grader, short_circuit):
         worker = make_worker(grader, short_circuit)
@@ -140,6 +162,24 @@ class ParallelGradingTest(unittest.TestCase):
                     )
 
         self.assertEqual(multiprocessing.active_children(), [])
+
+    def test_children_read_archive_independently(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive_path = os.path.join(tmp, 'data.zip')
+            with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as archive:
+                for i in range(16):
+                    archive.writestr('case%d.in' % i, expected_archive_data(i))
+
+            problem = mock.Mock()
+            problem.problem_data = ProblemDataManager(tmp)
+            problem.problem_data.archive = zipfile.ZipFile(archive_path)
+
+            cases = [(None, ArchiveCase(i, problem)) for i in range(16)]
+            grader = ArchiveGrader({})
+            for _ in range(3):
+                results = self.grade_in_parallel(cases, [], grader, False, 8)
+                flags = [entry[4] for entry in results if entry[0] == IPC.RESULT]
+                self.assertEqual(flags, [Result.AC] * 16)
 
     def test_abort(self):
         cases = [(None, FakeCase(i, 1, str(i), str(i))) for i in range(6)]

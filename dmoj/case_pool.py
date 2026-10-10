@@ -229,12 +229,22 @@ class CasePool:
     def _child_main(self, conn: Connection, inherited_conns: List[Connection], cpus: Optional[List[int]]) -> None:
         # Never return normally: running finalizers here would e.g. delete the compiled binary, which the other children
         # are still using.
+        shared_executors: List[Any] = []
         try:
             suffix = ' on CPU %s' % ','.join(map(str, cpus)) if cpus else ''
             _set_proc_title(multiprocessing.current_process().name + suffix)
 
             for inherited in inherited_conns:
                 inherited.close()
+
+            # Cases share one Problem, whose archive handle would otherwise share its file offset across children.
+            problem = getattr(self.cases[0][1], 'problem', None) if self.cases else None
+            if problem is not None:
+                problem.problem_data.reopen_archive()
+
+            if hasattr(self.grader, 'use_private_executors'):
+                # Held until we exit: releasing them would delete directories the other children still use.
+                shared_executors = self.grader.use_private_executors()
 
             if cpus:
                 # Pin both ourselves (the tracer) and every process we launch to this slot's CPUs.
@@ -245,6 +255,11 @@ class CasePool:
         except BaseException:  # noqa: B036, we must never fall through to the finalizers
             logger.exception('Case pool child crashed')
         finally:
+            if shared_executors:
+                try:
+                    self.grader.cleanup_private_executors()
+                except Exception:
+                    logger.exception('Failed to clean up private executors')
             sys.stdout.flush()
             sys.stderr.flush()
             os._exit(0)

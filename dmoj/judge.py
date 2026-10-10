@@ -502,6 +502,8 @@ class JudgeWorker:
             yield from self._commit_results(flattened_cases, batch_dependencies, self.case_pool.get)
         finally:
             self.case_pool.close()
+            # The pool holds on to the grader, which must be freed for its binary to be cleaned up.
+            self.case_pool = None
 
     @staticmethod
     def _flatten_cases(problem: Problem) -> Tuple[List[Tuple[Optional[int], BaseTestCase]], List[Set[int]]]:

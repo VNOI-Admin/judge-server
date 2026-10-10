@@ -307,6 +307,14 @@ class ProblemDataManager(dict):
         with self.open(key) as f:
             return f.read()
 
+    def reopen_archive(self) -> None:
+        """
+        Gives this process its own handle on the archive. A forked process must call this before reading: the
+        inherited handle shares its file offset with the parent's and siblings', so concurrent reads corrupt each other.
+        """
+        if self.archive:
+            self.archive = zipfile.ZipFile(self.archive.filename, 'r')
+
     def __del__(self):
         if self.archive:
             self.archive.close()
