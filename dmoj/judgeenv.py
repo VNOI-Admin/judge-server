@@ -2,7 +2,9 @@ import argparse
 import glob
 import logging
 import os
+import shutil
 import ssl
+import tempfile
 from collections import defaultdict
 from fnmatch import fnmatch
 from operator import itemgetter
@@ -14,9 +16,11 @@ from dmoj.config import ConfigNode
 from dmoj.utils import pyyaml_patch  # noqa: F401, imported for side effect
 from dmoj.utils.ansi import print_ansi
 from dmoj.utils.glob_ext import find_glob_root
+from dmoj.utils.s3_storage import S3ProblemStorage
 from dmoj.utils.unicode import utf8text
 
 storage_namespaces: Dict[Optional[str], List[str]] = {}
+s3_storages: Dict[Optional[str], List[S3ProblemStorage]] = defaultdict(list)
 # [{'id': ..., 'namespace': ...}]
 problem_storages: Optional[List[Dict[str, Optional[str]]]] = None
 problem_globs: List[str] = []
@@ -67,7 +71,7 @@ env: ConfigNode = ConfigNode(
 _root: str = os.path.dirname(__file__)
 
 log_file = server_host = server_port = no_ansi = skip_self_test = no_watchdog = problem_regex = case_regex = None
-cli_history_file = cert_store = api_listen = None
+cli_history_file = cert_store = api_listen = callback_url = None
 secure: bool = False
 no_cert_check: bool = False
 log_level = logging.DEBUG
@@ -89,7 +93,7 @@ _storage_namespace_cache: Dict[Optional[str], StorageNamespaceCache] = defaultdi
 
 
 def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no cover
-    global problem_globs, problem_storages, only_executors, exclude_executors, log_file, server_host, server_port, no_ansi, skip_self_test, no_watchdog, problem_regex, case_regex, api_listen, secure, no_cert_check, cert_store, problem_watches, cli_history_file, cli_command, log_level
+    global problem_globs, problem_storages, only_executors, exclude_executors, log_file, server_host, server_port, no_ansi, skip_self_test, no_watchdog, problem_regex, case_regex, api_listen, callback_url, secure, no_cert_check, cert_store, problem_watches, cli_history_file, cli_command, log_level
 
     if cli:
         description = 'Starts a shell for interfacing with a local judge instance.'
@@ -98,7 +102,7 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
 
     parser = argparse.ArgumentParser(description=description)
     if not cli:
-        parser.add_argument('server_host', help='host to connect for the server')
+        parser.add_argument('server_host', nargs='?', help='host to connect for the server')
         parser.add_argument('judge_name', nargs='?', help='judge name (overrides configuration)')
         parser.add_argument('judge_key', nargs='?', help='judge key (overrides configuration)')
         parser.add_argument('-p', '--server-port', type=int, default=9999, help='port to connect for the server')
@@ -141,6 +145,12 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
             'security is left as an exercise for the reverse proxy)',
         )
         parser.add_argument('-A', '--api-host', default='127.0.0.1', help='IPv4 address to listen for judge API')
+        parser.add_argument(
+            '--callback-url',
+            default=os.environ.get('DMOJ_CALLBACK_URL'),
+            help='run in HTTP API mode: accept submissions on the judge API and POST grading events to this URL '
+            'instead of connecting to the server (default: $DMOJ_CALLBACK_URL)',
+        )
 
         parser.add_argument('-s', '--secure', action='store_true', help='connect to server via TLS')
         parser.add_argument('-k', '--no-certificate-check', action='store_true', help='do not check TLS certificate')
@@ -162,6 +172,8 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
         parser.add_argument('case_regex', help='when specified, only matched cases will be tested', nargs='?')
 
     args = parser.parse_args()
+    if not cli and not args.server_host and not args.callback_url:
+        parser.error('either server_host or --callback-url is required')
 
     server_host = getattr(args, 'server_host', None)
     server_port = getattr(args, 'server_port', None)
@@ -176,6 +188,9 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
     log_level = args.log_level
     if not cli:
         api_listen = (args.api_host, args.api_port) if args.api_port else None
+        callback_url = args.callback_url
+        if callback_url:
+            api_listen = api_listen or ('0.0.0.0', 15001)
 
         if ssl:
             secure = args.secure
@@ -220,8 +235,23 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
             problem_storages = []
 
             def _register_storage_entries(raw_entries, namespace: Optional[str]) -> None:
-                storage_namespaces[namespace] = [entry.glob for entry in raw_entries]
-                problem_storages.extend({'id': entry.id, 'namespace': namespace} for entry in raw_entries)
+                storage_namespaces[namespace] = []
+                for entry in raw_entries:
+                    if entry.get('type') == 's3':
+                        s3_storages[namespace].append(
+                            S3ProblemStorage(
+                                id=entry.id,
+                                bucket=entry.bucket,
+                                prefix=entry.get('prefix') or '',
+                                endpoint_url=entry.get('endpoint_url'),
+                                region=entry.get('region'),
+                                access_key=entry.get('access_key'),
+                                secret_key=entry.get('secret_key'),
+                            )
+                        )
+                    else:
+                        storage_namespaces[namespace].append(entry.glob)
+                    problem_storages.append({'id': entry.id, 'namespace': namespace})
 
             _register_storage_entries(env.problem_storage_globs or [], None)
             for namespace, raw_entries in (env.storage_namespaces or {}).items():
@@ -234,7 +264,7 @@ def load_env(cli: bool = False, testsuite: bool = False) -> None:  # pragma: no 
         for globs in storage_namespaces.values():
             all_problem_globs.extend(globs)
 
-        if not all_problem_globs:
+        if not all_problem_globs and not any(s3_storages.values()):
             raise SystemExit('no problems available to grade')
 
         problem_globs = storage_namespaces[None]
@@ -300,9 +330,32 @@ def get_problem_root(problem_id, namespace=None) -> Optional[str]:
                 cache.problem_root_cache[problem_id] = problem_root_dir
                 break
         else:
-            return None
+            downloaded_root = _download_problem(problem_id, namespace)
+            if downloaded_root is None:
+                return None
+            cache.problem_root_cache[problem_id] = downloaded_root
 
     return cache.problem_root_cache[problem_id]
+
+
+def problem_download_dir(pid: int) -> str:
+    return os.path.join(env.tempdir or tempfile.gettempdir(), 'dmoj-problems', str(pid))
+
+
+def cleanup_problem_downloads(pid: int) -> None:
+    shutil.rmtree(problem_download_dir(pid), ignore_errors=True)
+
+
+def _download_problem(problem_id: str, namespace: Optional[str]) -> Optional[str]:
+    # Downloads land in a per-process directory. Grading happens in a forked worker, so each submission gets a fresh
+    # copy, which the judge removes with `cleanup_problem_downloads` once the worker exits.
+    for storage in s3_storages.get(namespace, []):
+        dest = os.path.join(problem_download_dir(os.getpid()), namespace or '_', problem_id)
+        shutil.rmtree(dest, ignore_errors=True)
+        if storage.download(problem_id, dest):
+            return dest
+        shutil.rmtree(dest, ignore_errors=True)
+    return None
 
 
 def get_problem_roots(namespace=None) -> List[str]:

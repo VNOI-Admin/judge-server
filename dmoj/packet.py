@@ -263,28 +263,7 @@ class PacketManager:
             self.current_submission_packet()
         elif name == 'submission-request':
             self.submission_acknowledged_packet(packet['submission-id'])
-            from dmoj.judge import Submission
-
-            self.judge.begin_grading(
-                Submission(
-                    id=packet['submission-id'],
-                    problem_id=packet['problem-id'],
-                    storage_namespace=packet.get('storage-namespace', None),
-                    language=packet['language'],
-                    source=packet['source'],
-                    time_limit=float(packet['time-limit']),
-                    memory_limit=int(packet['memory-limit']),
-                    short_circuit=packet['short-circuit'],
-                    meta=packet['meta'],
-                )
-            )
-            self._batch = 0
-            log.info(
-                'Accept submission: %d: executor: %s, code: %s',
-                packet['submission-id'],
-                packet['language'],
-                packet['problem-id'],
-            )
+            self._begin_grading_from_request(packet)
         elif name == 'terminate-submission':
             self.judge.abort_grading()
         elif name == 'disconnect':
@@ -292,6 +271,30 @@ class PacketManager:
             self.disconnect()
         else:
             log.error('Unknown packet %s, payload %s', name, packet)
+
+    def _begin_grading_from_request(self, packet: dict) -> None:
+        from dmoj.judge import Submission
+
+        self.judge.begin_grading(
+            Submission(
+                id=packet['submission-id'],
+                problem_id=packet['problem-id'],
+                storage_namespace=packet.get('storage-namespace', None),
+                language=packet['language'],
+                source=packet['source'],
+                time_limit=float(packet['time-limit']),
+                memory_limit=int(packet['memory-limit']),
+                short_circuit=packet['short-circuit'],
+                meta=packet['meta'],
+            )
+        )
+        self._batch = 0
+        log.info(
+            'Accept submission: %d: executor: %s, code: %s',
+            packet['submission-id'],
+            packet['language'],
+            packet['problem-id'],
+        )
 
     def handshake(
         self,

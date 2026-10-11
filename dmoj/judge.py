@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, Generator, List, NamedTuple, Optional, S
 from dmoj import packet
 from dmoj.control import JudgeControlRequestHandler
 from dmoj.error import CompileError
-from dmoj.judgeenv import env, get_supported_problems_and_mtimes, startup_warnings
+from dmoj.judgeenv import cleanup_problem_downloads, env, get_supported_problems_and_mtimes, startup_warnings
 from dmoj.monitor import Monitor
 from dmoj.problem import BaseTestCase, BatchedTestCase, Problem, TestCase
 from dmoj.result import Result
@@ -196,6 +196,9 @@ class Judge:
             self.log_internal_error()
         finally:
             self.current_judge_worker.wait_with_timeout()
+            worker_pid = self.current_judge_worker.worker_process.pid
+            if worker_pid is not None:
+                cleanup_problem_downloads(worker_pid)
             self.current_judge_worker = None
 
             # Might not have been set if an exception was encountered before HELLO message, so signal here to keep the
@@ -576,6 +579,13 @@ class ClassicJudge(Judge):
         super().__init__(packet.PacketManager(host, port, self, env['id'], env['key'], **kwargs))
 
 
+class ApiJudge(Judge):
+    def __init__(self, callback_url, listen) -> None:
+        from dmoj.api_packet import ApiPacketManager
+
+        super().__init__(ApiPacketManager(self, env['id'], env['key'], callback_url, listen))
+
+
 def sanity_check():
     if os.name == 'nt':
         print('cannot run judge on Windows', file=sys.stderr)
@@ -614,6 +624,8 @@ def sanity_check():
 
 
 def make_host_port(judgeenv):
+    if judgeenv.callback_url:
+        return 'API %s:%s -> %s' % (judgeenv.api_listen[0], judgeenv.api_listen[1], judgeenv.callback_url)
     host = judgeenv.server_host
     if ':' in host:
         host = '[%s]' % (host,)
@@ -655,13 +667,17 @@ def main():  # pragma: no cover
 
     setproctitle('DMOJ Judge %s on %s' % (env['id'], make_host_port(judgeenv)))
 
-    judge = ClassicJudge(
-        judgeenv.server_host,
-        judgeenv.server_port,
-        secure=judgeenv.secure,
-        no_cert_check=judgeenv.no_cert_check,
-        cert_store=judgeenv.cert_store,
-    )
+    judge: Judge
+    if judgeenv.callback_url:
+        judge = ApiJudge(judgeenv.callback_url, judgeenv.api_listen)
+    else:
+        judge = ClassicJudge(
+            judgeenv.server_host,
+            judgeenv.server_port,
+            secure=judgeenv.secure,
+            no_cert_check=judgeenv.no_cert_check,
+            cert_store=judgeenv.cert_store,
+        )
     monitor = Monitor()
     monitor.callback = judge.update_problems
 
@@ -672,7 +688,8 @@ def main():  # pragma: no cover
 
         signal.signal(signal.SIGUSR2, update_problem_signal)
 
-    if judgeenv.api_listen:
+    # In API mode, the packet manager serves the control API itself.
+    if judgeenv.api_listen and not judgeenv.callback_url:
         judge_instance = judge
 
         class Handler(JudgeControlRequestHandler):

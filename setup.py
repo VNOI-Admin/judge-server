@@ -177,7 +177,7 @@ setup(
     ext_modules=cythonize(extensions),
     install_requires=['watchdog', 'pyyaml', 'termcolor', 'pygments', 'setproctitle', 'pylru', 'requests'],
     tests_require=['requests', 'parameterized'],
-    extras_require={'test': ['requests', 'parameterized']},
+    extras_require={'test': ['requests', 'parameterized'], 's3': ['boto3']},
     cmdclass={'build_ext': build_ext_dmoj},
     author='DMOJ Team',
     author_email='contact@dmoj.ca',
