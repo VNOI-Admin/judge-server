@@ -81,6 +81,16 @@ class CommunicationGrader(StandardGrader):
         self._manager_binary = self._generate_manager_binary()
         self._manager_orig_write_fs = self._manager_binary.write_fs
 
+    def use_private_executors(self) -> List[BaseExecutor]:
+        shared = self._user_binaries
+        self._user_binaries = [binary.clone() for binary in shared]
+        self.binary = self._user_binaries[0]
+        return shared
+
+    def cleanup_private_executors(self) -> None:
+        for binary in self._user_binaries:
+            binary.cleanup()
+
     def populate_result(self, error: bytes, result: Result, process: TracedPopen) -> None:
         for i in range(self.num_processes):
             # A process the manager never talked to takes no part in the

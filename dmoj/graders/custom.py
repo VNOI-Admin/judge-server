@@ -5,6 +5,9 @@ from dmoj.utils.module import load_module_from_file
 
 
 class CustomGrader:
+    # Custom graders may keep state across test cases.
+    supports_parallel = False
+
     def __init__(self, judge, problem, language, source):
         self.judge = judge
         self.mod = load_module_from_file(

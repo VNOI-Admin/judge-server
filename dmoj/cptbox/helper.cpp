@@ -80,7 +80,7 @@ int cptbox_child_run(const struct child_config *config) {
         CPU_ZERO(&cpuset);
 
         for (size_t i = 0; i < sizeof(config->cpu_affinity_mask) * 8; i++) {
-            if (config->cpu_affinity_mask & (1 << i)) {
+            if (config->cpu_affinity_mask & (1UL << i)) {
                 CPU_SET(i, &cpuset);
             }
         }
