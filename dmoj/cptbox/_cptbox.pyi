@@ -45,8 +45,6 @@ class Process:
     _child_stdin: int
     _child_stdout: int
     _child_stderr: int
-    _child_fd_3: int
-    _child_fd_4: int
     _child_memory: int
     _child_address: int
     _child_personality: int
@@ -101,6 +99,10 @@ PTBOX_SPAWN_FAIL_SETAFFINITY: int
 PTBOX_SPAWN_FAIL_SETRLIMIT2: int
 PTBOX_SPAWN_FAIL_CHDIR: int
 PTBOX_SPAWN_FAIL_DUP2: int
+PTBOX_SPAWN_FAIL_LANDLOCK: int
+
+def has_landlock() -> bool: ...
+def landlock_version() -> int: ...
 
 AT_FDCWD: int
 bsd_get_proc_cwd: Callable[[int], str]

@@ -1,0 +1,6 @@
+language: PY3
+time: 1
+memory: 65536
+source: ie.py
+expect: IE
+feedback: 'output_limit_length (2147483648) exceeds memfd_output_limit (1073741824)'
