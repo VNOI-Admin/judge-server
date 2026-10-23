@@ -2,5 +2,5 @@ language: PY3
 time: 1
 memory: 65536
 source: ie.py
-expect: IE
+expect: CKE
 feedback: 'not-a-contrib-module is not a valid contrib module'

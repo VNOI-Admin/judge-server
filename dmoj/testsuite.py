@@ -107,10 +107,11 @@ class TestManager:
     def compile_message_packet(self, log):
         pass
 
-    def internal_error_packet(self, message):
-        allow_IE = 'IE' in self.codes_all
+    def internal_error_packet(self, message, error_type=None):
+        expected_code = 'CKE' if error_type == 'checker' else 'IE'
+        allow_error = expected_code in self.codes_all
         allow_feedback = not self.feedback_all or any(map(lambda feedback: feedback in message, self.feedback_all))
-        if not allow_IE or not allow_feedback:
+        if not allow_error or not allow_feedback:
             self.fail('Unexpected internal error:\n' + message)
 
     def begin_grading_packet(self, is_pretested):
@@ -136,7 +137,7 @@ class TestManager:
 
 
 class Tester:
-    all_codes = {'AC', 'IE', 'TLE', 'MLE', 'OLE', 'RTE', 'IR', 'WA', 'CE', 'SC'}
+    all_codes = {'AC', 'IE', 'CKE', 'TLE', 'MLE', 'OLE', 'RTE', 'IR', 'WA', 'CE', 'SC'}
 
     def __init__(self, problem_regex=None, case_regex=None):
         self.manager = TestManager()

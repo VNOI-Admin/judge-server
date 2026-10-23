@@ -1,6 +1,6 @@
 from typing import Any, TYPE_CHECKING
 
-from dmoj.error import InternalError
+from dmoj.error import CheckerError, InternalError
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.result import CheckerResult
 
@@ -18,6 +18,8 @@ class BaseContribModule:
             try:
                 return f(*args, **kwargs)
             except InternalError as e:
+                if kwargs.get('name') == 'checker':
+                    raise CheckerError(str(e)) from e
                 proc = args[1]
                 return CheckerResult(
                     False,

@@ -1,10 +1,11 @@
 import logging
+import math
 import subprocess
 
 from dmoj.checkers import CheckerOutput
 from dmoj.cptbox import TracedPopen
 from dmoj.cptbox.lazy_bytes import LazyBytes
-from dmoj.error import OutputLimitExceeded
+from dmoj.error import CheckerError, OutputLimitExceeded
 from dmoj.executors import executors
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.graders.base import BaseGrader
@@ -53,15 +54,32 @@ class StandardGrader(BaseGrader):
         # We shouldn't run checkers if the submission is already known to be incorrect, because some checkers
         # might be very computationally expensive.
         # See https://github.com/DMOJ/judge-server/issues/170
-        checker = case.checker()
-        # checker is a `partial` object, NOT a `function` object
-        if not result.result_flag or getattr(checker.func, 'run_on_error', False):
+        try:
+            checker = case.checker()
+            # checker is a `partial` object, NOT a `function` object
+            run_on_error = getattr(checker.func, 'run_on_error', False)
+        except CheckerError:
+            raise
+        except Exception as e:
+            raise CheckerError('error loading checker') from e
+
+        if not result.result_flag or run_on_error:
+            judge_output = case.output_data()
+            input_errors = []
+
+            def get_input_data():
+                try:
+                    return case.input_data()
+                except Exception as e:
+                    input_errors.append(e)
+                    raise
+
             try:
                 check = checker(
                     result.proc_output,
-                    case.output_data(),
+                    judge_output,
                     submission_source=self.source,
-                    judge_input=LazyBytes(case.input_data),
+                    judge_input=LazyBytes(get_input_data),
                     point_value=case.points,
                     case_position=case.position,
                     batch=case.batch,
@@ -75,7 +93,33 @@ class StandardGrader(BaseGrader):
             except UnicodeDecodeError:
                 # Don't rely on problemsetters to do sane things when it comes to Unicode handling, so
                 # just proactively swallow all Unicode-related checker errors.
+                if input_errors:
+                    raise input_errors[0]
                 return CheckerResult(False, 0, feedback='invalid unicode')
+            except CheckerError:
+                raise
+            except Exception as e:
+                if input_errors:
+                    raise input_errors[0]
+                raise CheckerError('error executing checker') from e
+
+            if input_errors:
+                raise input_errors[0]
+            if isinstance(check, CheckerResult):
+                if (
+                    not isinstance(check.passed, bool)
+                    or isinstance(check.points, bool)
+                    or not isinstance(check.points, (int, float))
+                    or isinstance(check.points, float)
+                    and not math.isfinite(check.points)
+                    or check.feedback is not None
+                    and not isinstance(check.feedback, str)
+                    or check.extended_feedback is not None
+                    and not isinstance(check.extended_feedback, str)
+                ):
+                    raise CheckerError('invalid checker result')
+            elif not isinstance(check, bool):
+                raise CheckerError(f'invalid checker return type: {type(check).__name__}')
         else:
             # Solution is guaranteed to receive 0 points
             check = False

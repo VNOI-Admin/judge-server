@@ -14,6 +14,10 @@ class InternalError(Exception):
     pass
 
 
+class CheckerError(InternalError):
+    pass
+
+
 class OutputLimitExceeded(Exception):
     def __init__(self, stream, limit, data=None):
         if data is None:
