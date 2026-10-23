@@ -60,8 +60,8 @@ class ContribModule(TestlibContribModule):
                 memory_limit,
                 feedback,
                 extended_feedback,
-                name,
-                stderr,
-                show_feedback,
+                name=name,
+                stderr=stderr,
+                show_feedback=show_feedback,
                 **kwargs,
             )

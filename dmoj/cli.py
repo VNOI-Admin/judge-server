@@ -30,7 +30,7 @@ class LocalPacketManager:
     def compile_message_packet(self, log):
         pass
 
-    def internal_error_packet(self, message):
+    def internal_error_packet(self, message, error_type=None):
         pass
 
     def begin_grading_packet(self, is_pretested):

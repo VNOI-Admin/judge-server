@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, Generator, List, NamedTuple, Optional, S
 
 from dmoj import packet
 from dmoj.control import JudgeControlRequestHandler
-from dmoj.error import CompileError
+from dmoj.error import CheckerError, CompileError
 from dmoj.judgeenv import env, get_supported_problems_and_mtimes, startup_warnings
 from dmoj.monitor import Monitor
 from dmoj.problem import BaseTestCase, BatchedTestCase, Problem, TestCase
@@ -254,9 +254,9 @@ class Judge:
         self.packet_manager.submission_aborted_packet()
         report(ansi_style('#ansi[Forcefully terminating grading. Temporary files may not be deleted.](red|bold)'))
 
-    def _ipc_unhandled_exception(self, _report, message: str) -> None:
+    def _ipc_unhandled_exception(self, _report, message: str, error_type: Optional[str] = None) -> None:
         logger.error('Unhandled exception in worker process')
-        self.log_internal_error(message=message)
+        self.log_internal_error(message=message, error_type=error_type)
 
     def abort_grading(self, submission_id: Optional[int] = None) -> None:
         # Capture locally so we don't end up with a TOCTOU NoneType error. This function is typically called
@@ -294,7 +294,9 @@ class Judge:
         if self.packet_manager:
             self.packet_manager.close()
 
-    def log_internal_error(self, exc: Optional[BaseException] = None, message: Optional[str] = None) -> None:
+    def log_internal_error(
+        self, exc: Optional[BaseException] = None, message: Optional[str] = None, error_type: Optional[str] = None
+    ) -> None:
         if not message:
             # If exc exists, raise it so that sys.exc_info() is populated with its data.
             if exc:
@@ -314,7 +316,7 @@ class Judge:
             # Strip ANSI from the message, since this might be a checker's CompileError ...we don't want to see the raw
             # ANSI codes from GCC/Clang on the site. We could use format_ansi and send HTML to the site, but the site
             # doesn't presently support HTML internal error formatting.
-            self.packet_manager.internal_error_packet(strip_ansi(message))
+            self.packet_manager.internal_error_packet(strip_ansi(message), error_type=error_type)
         except Exception:  # noqa E722: don't want `log_internal_error` to trigger `log_internal_error`, ever
             logger.exception('Error encountered while reporting error to site!')
 
@@ -417,8 +419,10 @@ class JudgeWorker:
 
         def _report_unhandled_exception() -> None:
             # We can't pickle the whole traceback object, so just send the formatted exception.
+            exception = sys.exc_info()[1]
             message = ''.join(traceback.format_exception(*sys.exc_info()))
-            judge_process_conn.send((IPC.UNHANDLED_EXCEPTION, (message,)))
+            data = (message, 'checker') if isinstance(exception, CheckerError) else (message,)
+            judge_process_conn.send((IPC.UNHANDLED_EXCEPTION, data))
             judge_process_conn.send((IPC.BYE, ()))
 
         ipc_recv_thread = None
