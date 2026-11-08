@@ -197,6 +197,12 @@ class CompiledExecutor(BaseExecutor, metaclass=_CompiledExecutorMeta):
         if self.is_failed_compile(process):
             if process.is_tle:
                 output = b'compiler timed out (> %d seconds)' % self.compiler_time_limit
+            elif b'File too large' in output:
+                output = (
+                    b'compiler output file exceeded the size limit (> %d MB). '
+                    b'This is usually caused by a large global array with non-zero initializers.\n\n'
+                    % (self.executable_size // 1024 // 1024)
+                ) + output
             if process.protection_fault:
                 print_protection_fault(process.protection_fault)
             self.handle_compile_error(output)
