@@ -15,7 +15,7 @@ class InternalError(Exception):
 
 
 class CheckerError(InternalError):
-    pass
+    """A failure already destined for the internal-error path, originating in a checker."""
 
 
 class OutputLimitExceeded(Exception):

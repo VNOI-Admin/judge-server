@@ -1,5 +1,4 @@
 import logging
-import math
 import subprocess
 
 from dmoj.checkers import CheckerOutput
@@ -56,23 +55,24 @@ class StandardGrader(BaseGrader):
         # See https://github.com/DMOJ/judge-server/issues/170
         try:
             checker = case.checker()
-            # checker is a `partial` object, NOT a `function` object
-            run_on_error = getattr(checker.func, 'run_on_error', False)
-        except CheckerError:
-            raise
-        except Exception as e:
-            raise CheckerError('error loading checker') from e
-
-        if not result.result_flag or run_on_error:
-            judge_output = case.output_data()
-            input_errors = []
+        except Exception as exc:
+            raise CheckerError('error loading checker') from exc
+        # checker is a `partial` object, NOT a `function` object
+        if not result.result_flag or getattr(checker.func, 'run_on_error', False):
+            input_error = None
 
             def get_input_data():
+                nonlocal input_error
                 try:
                     return case.input_data()
-                except Exception as e:
-                    input_errors.append(e)
+                except Exception as exc:
+                    input_error = exc
                     raise
+
+            try:
+                judge_output = case.output_data()
+            except UnicodeDecodeError:
+                return CheckerResult(False, 0, feedback='invalid unicode')
 
             try:
                 check = checker(
@@ -93,33 +93,12 @@ class StandardGrader(BaseGrader):
             except UnicodeDecodeError:
                 # Don't rely on problemsetters to do sane things when it comes to Unicode handling, so
                 # just proactively swallow all Unicode-related checker errors.
-                if input_errors:
-                    raise input_errors[0]
                 return CheckerResult(False, 0, feedback='invalid unicode')
-            except CheckerError:
-                raise
-            except Exception as e:
-                if input_errors:
-                    raise input_errors[0]
-                raise CheckerError('error executing checker') from e
-
-            if input_errors:
-                raise input_errors[0]
-            if isinstance(check, CheckerResult):
-                if (
-                    not isinstance(check.passed, bool)
-                    or isinstance(check.points, bool)
-                    or not isinstance(check.points, (int, float))
-                    or isinstance(check.points, float)
-                    and not math.isfinite(check.points)
-                    or check.feedback is not None
-                    and not isinstance(check.feedback, str)
-                    or check.extended_feedback is not None
-                    and not isinstance(check.extended_feedback, str)
-                ):
-                    raise CheckerError('invalid checker result')
-            elif not isinstance(check, bool):
-                raise CheckerError(f'invalid checker return type: {type(check).__name__}')
+            except Exception as exc:
+                # A failed lazy input read is a data error, not a checker error.
+                if exc is input_error:
+                    raise
+                raise CheckerError('error executing checker') from exc
         else:
             # Solution is guaranteed to receive 0 points
             check = False

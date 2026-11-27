@@ -356,12 +356,12 @@ class PacketManager:
             {'name': 'compile-message', 'submission-id': self.judge.current_submission.id, 'log': message}
         )
 
-    def internal_error_packet(self, message: str, error_type: Optional[str] = None):
+    def internal_error_packet(self, message: str, *, error_type: Optional[str] = None):
         log.debug('Internal error: %d', self.judge.current_submission.id)
         self._flush_testcase_queue()
         packet = {'name': 'internal-error', 'submission-id': self.judge.current_submission.id, 'message': message}
         if error_type == 'checker':
-            packet['error-type'] = error_type
+            packet['error-type'] = 'checker'
         self._send_packet(packet)
 
     def begin_grading_packet(self, is_pretested: bool):

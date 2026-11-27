@@ -295,7 +295,7 @@ class Judge:
             self.packet_manager.close()
 
     def log_internal_error(
-        self, exc: Optional[BaseException] = None, message: Optional[str] = None, error_type: Optional[str] = None
+        self, exc: Optional[BaseException] = None, message: Optional[str] = None, *, error_type: Optional[str] = None
     ) -> None:
         if not message:
             # If exc exists, raise it so that sys.exc_info() is populated with its data.
@@ -316,7 +316,10 @@ class Judge:
             # Strip ANSI from the message, since this might be a checker's CompileError ...we don't want to see the raw
             # ANSI codes from GCC/Clang on the site. We could use format_ansi and send HTML to the site, but the site
             # doesn't presently support HTML internal error formatting.
-            self.packet_manager.internal_error_packet(strip_ansi(message), error_type=error_type)
+            if error_type == 'checker':
+                self.packet_manager.internal_error_packet(strip_ansi(message), error_type=error_type)
+            else:
+                self.packet_manager.internal_error_packet(strip_ansi(message))
         except Exception:  # noqa E722: don't want `log_internal_error` to trigger `log_internal_error`, ever
             logger.exception('Error encountered while reporting error to site!')
 
@@ -419,9 +422,9 @@ class JudgeWorker:
 
         def _report_unhandled_exception() -> None:
             # We can't pickle the whole traceback object, so just send the formatted exception.
-            exception = sys.exc_info()[1]
-            message = ''.join(traceback.format_exception(*sys.exc_info()))
-            data = (message, 'checker') if isinstance(exception, CheckerError) else (message,)
+            exc_info = sys.exc_info()
+            message = ''.join(traceback.format_exception(*exc_info))
+            data = (message, 'checker') if isinstance(exc_info[1], CheckerError) else (message,)
             judge_process_conn.send((IPC.UNHANDLED_EXCEPTION, data))
             judge_process_conn.send((IPC.BYE, ()))
 

@@ -1,7 +1,7 @@
 from re import split as resplit
 from typing import Union
 
-from dmoj.error import CheckerError, InternalError
+from dmoj.error import InternalError
 from dmoj.result import CheckerResult
 from dmoj.utils.format_feedback import compress, english_ending
 from dmoj.utils.unicode import utf8bytes
@@ -139,8 +139,6 @@ def check(
                                 precision + 2,
                             ),
                         )
-    except UnicodeDecodeError as e:
-        return CheckerResult(False, 0, 'Checker error', str(e))
     except Exception as e:
-        raise CheckerError('error executing checker') from e
+        return CheckerResult(False, 0, 'Checker error', str(e))
     return CheckerResult(True, point_value, None, f'{cnt_token} token(s)')
