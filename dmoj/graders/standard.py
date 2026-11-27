@@ -4,7 +4,7 @@ import subprocess
 from dmoj.checkers import CheckerOutput
 from dmoj.cptbox import TracedPopen
 from dmoj.cptbox.lazy_bytes import LazyBytes
-from dmoj.error import OutputLimitExceeded
+from dmoj.error import CheckerError, OutputLimitExceeded
 from dmoj.executors import executors
 from dmoj.executors.base_executor import BaseExecutor
 from dmoj.graders.base import BaseGrader
@@ -53,15 +53,33 @@ class StandardGrader(BaseGrader):
         # We shouldn't run checkers if the submission is already known to be incorrect, because some checkers
         # might be very computationally expensive.
         # See https://github.com/DMOJ/judge-server/issues/170
-        checker = case.checker()
+        try:
+            checker = case.checker()
+        except Exception as exc:
+            raise CheckerError('error loading checker') from exc
         # checker is a `partial` object, NOT a `function` object
         if not result.result_flag or getattr(checker.func, 'run_on_error', False):
+            input_error = None
+
+            def get_input_data():
+                nonlocal input_error
+                try:
+                    return case.input_data()
+                except Exception as exc:
+                    input_error = exc
+                    raise
+
+            try:
+                judge_output = case.output_data()
+            except UnicodeDecodeError:
+                return CheckerResult(False, 0, feedback='invalid unicode')
+
             try:
                 check = checker(
                     result.proc_output,
-                    case.output_data(),
+                    judge_output,
                     submission_source=self.source,
-                    judge_input=LazyBytes(case.input_data),
+                    judge_input=LazyBytes(get_input_data),
                     point_value=case.points,
                     case_position=case.position,
                     batch=case.batch,
@@ -76,6 +94,11 @@ class StandardGrader(BaseGrader):
                 # Don't rely on problemsetters to do sane things when it comes to Unicode handling, so
                 # just proactively swallow all Unicode-related checker errors.
                 return CheckerResult(False, 0, feedback='invalid unicode')
+            except Exception as exc:
+                # A failed lazy input read is a data error, not a checker error.
+                if exc is input_error:
+                    raise
+                raise CheckerError('error executing checker') from exc
         else:
             # Solution is guaranteed to receive 0 points
             check = False

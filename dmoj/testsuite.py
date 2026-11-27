@@ -107,7 +107,7 @@ class TestManager:
     def compile_message_packet(self, log):
         pass
 
-    def internal_error_packet(self, message):
+    def internal_error_packet(self, message, *, error_type=None):
         allow_IE = 'IE' in self.codes_all
         allow_feedback = not self.feedback_all or any(map(lambda feedback: feedback in message, self.feedback_all))
         if not allow_IE or not allow_feedback:
